@@ -86,3 +86,15 @@ du_dz_si = (u[1::]-u[0:-1]) / delta_z
 dv_dz_si = (v[1::]-v[0:-1]) / delta_z
 du_dz = du_dz_si*10.0**3.0 # m s-1 km-1
 dv_dz = dv_dz_si*10.0**3.0 # m s-1 km-1
+
+[ssinds] = np.where(dtheta_dz < 0)
+# Print statically unstable layers
+dssinds = ssinds[1:]-ssinds[0:-1]
+lowerind = ssinds[0]
+numinds = len(ssinds)
+for ii in range(numinds-1):
+    last_check = ssinds[ii]+dssinds[ii]
+    if ( (dssinds[ii]>1) and (last_check <= ssinds[-1])):
+        upperind = ssinds[ii]
+        print "The layer between %5.2f and %5.2f km is statically unstable" %(hght[lowerind]/1000., hght[upperind]/1000.)
+        lowerind = ssinds[ii+1]
