@@ -37,20 +37,11 @@ OLR = sigma*Te**4
 lapse = Ts - Ta # Note this is not a lapse rate, just a temperature difference
 GHE = sigma*Ts**(4.0) - OLR
 
-scale_height = (287.0*((Ta+Ts)/2))/9.81
-p0 = 1000.
-phalf = 500.
-z = -scale_height*np.log((p0/2.0)/p0)
-
-print "The height corresponding to %.2f hPa is %.2f m" % (phalf, z[eind])
-
-lapse_rate = (lapse/z)*1000
-print "The lapse rate is %.2f K/km" % (lapse_rate[eind])
 
 print "The Outgoing longwave radiation (OLR) is %.2f W m-2" % (OLR)
 print "The surface and atmosphere temperatures corresponding to an atmospheric emissivity of %.2f are %.2f K and %.2f K" % (emiss[eind], Ts[eind], Ta[eind])
 print "Ta minus Ts and greenhouse effect corresponding to an atmospheric emissivity of %.2f are %.2f K and %.2f W m-2 " % (emiss[eind], lapse[eind], GHE[eind])
-print lapse_rate[eind]
+
 
 ###########################
 # Plots
