@@ -14,7 +14,7 @@ import os, datetime
 # User settings
 ###########################
 label_fontsize = 16
-plot_greenhouse_effect = 'false'
+plot_greenhouse_effect = 'true'
 a = 0.3
 Fin = 1368.0
 sigma = 5.67*10**(-8)
@@ -34,7 +34,7 @@ Ta = (  (emiss/(2-emiss)))**(1.0/4.0)*Te
 OLR = sigma*Te**4
 
 
-lapse = Ts - Ta
+lapse = Ts - Ta # Note this is not a lapse rate, just a temperature difference
 GHE = sigma*Ts**(4.0) - OLR
 
 scale_height = (287.0*((Ta+Ts)/2))/9.81
