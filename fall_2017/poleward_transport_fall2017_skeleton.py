@@ -1,7 +1,11 @@
 
 # coding: utf-8
-
-# In[1]:
+#
+# Version info
+# >>conda -V
+# conda 4.3.21
+# >>python --version
+# Python 3.5.2 :: Anaconda custom (x86_64)
 
 ###########################
 # imports
@@ -59,8 +63,8 @@ p0 = 100000.  # Pascals
 # Reading in the file
 ab = np.loadtxt(datadir+infile, skiprows=1)       
 years = ab[:,0]
-slp_jan = ab[:,0]
-slp_july = ab[:,6]
+slp_jan = ab[:,1]
+slp_july = ab[:,7]
 slp_full = ab[:,1:]
 
 # In the data file, you will notice that -999.999 implies NaN.  The below filters those out.
