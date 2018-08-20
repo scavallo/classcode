@@ -967,16 +967,11 @@ The horizontal convergence
     dudx, dudy, dvdx, dvdy = _get_gradients(u, v, dx, dy)
     return dudx + dvdy
 
-def geostrophic_latlon(u, v, ghgt, lats, lons):
+def geostrophic_latlon(ghgt, lats, lons):
     '''
 Calculate geostrophic wind on a latitude/longitude grid
 
 Input:
-   
-   u(lats,lons), v(lats,lons) : 2 dimensional u and v wind arrays 
-                             dimensioned by (lats,lons).
-                             Arrays correspond to the x and y 
-                 components of the wind, respectively.
                  
    ghgt(lats,lons): 2 dimensional array of geopotential height
    
@@ -992,7 +987,7 @@ Output:
                  respectively.
 '''
     # 2D latitude array
-    glats = np.zeros_like(u).astype('f')      
+    glats = np.zeros_like(ghgt).astype('f')      
     for jj in range(0,len(lats)):
         for ii in range(0,len(lons)):    
             glats[jj,ii] = lats[jj]
