@@ -108,27 +108,40 @@ def filter_numeric_nans(data,thresh,repl_val,high_or_low) :
     dimens = np.shape(data)    
     temp = np.reshape(data,np.prod(np.size(data)), 1)    
     if high_or_low=='high':        	
-	inds = np.argwhere(temp>thresh) 	
-	temp[inds] = repl_val	  
+	    inds = np.argwhere(temp>thresh) 	
+	    temp[inds] = repl_val	  
     elif high_or_low=='low':    
         inds = np.argwhere(temp<thresh) 
-	temp[inds] = repl_val	  
+        temp[inds] = repl_val	  
     elif high_or_low =='both':
        	inds = np.argwhere(temp>thresh) 	
-	temp[inds] = repl_val
-	del inds
+        temp[inds] = repl_val
+        del inds
        	inds = np.argwhere(temp<-thresh) 	
-	temp[inds] = -repl_val	                 
+        temp[inds] = -repl_val	                 
     else:
         inds = np.argwhere(temp>thresh) 
-	temp[inds] = repl_val	  
+        temp[inds] = repl_val	  
     
     # Turn vector back into array
     data = np.reshape(temp,dimens,order='F').copy()
     
  
     return data    
-    
+def label_options(ax,fontsize=None,xaxis_opt=True,yaxis_opt=True,bold_opt=True):
+    if fontsize is None:
+        fontsize = 14
+    if xaxis_opt == True:   
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label1.set_fontsize(fontsize)
+            if bold_opt == True:
+                tick.label1.set_fontweight('bold')
+    if yaxis_opt == True:      
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label1.set_fontsize(fontsize)
+            if bold_opt == 'True':
+                tick.label1.set_fontweight('bold')
+            
 def bold_labels(ax,fontsize=None):
     if fontsize is None:
         fontsize = 14
@@ -147,13 +160,13 @@ def bold_labels(ax,fontsize=None):
 #    m.drawmapboundary
     
 def lonswap(d,subtract=0.):
-        sh = np.shape(d)	
-	midl = sh[1]/2	
-	midl = np.round(midl)
-	h=d[:,midl:].copy()-subtract
-	d[:,midl:]=d[:,:midl].copy()
-	d[:,:midl]=h
-	return d
+    sh = np.shape(d)	
+    midl = sh[1]/2	
+    midl = np.round(midl)
+    h=d[:,midl:].copy()-subtract
+    d[:,midl:]=d[:,:midl].copy()
+    d[:,:midl]=h
+    return d
 	    
 def periodic(d,add=0.):
 	return np.append( d, (d[:,0].copy()+add).reshape(-1,1) , 1)    
@@ -284,8 +297,8 @@ def cmap_whitezero(cmap,N,Nwhites,pos):
        colors[mid] = 1.
        isodd = 0
        if ( np.mod(N,2) == 0 ) :           
-	  colors[mid-1] = 1.
-	  isodd = 1
+           colors[mid-1] = 1.
+           isodd = 1
        kk=mid-nadd
        kend=mid+nadd 
        if ( kk < kend ) :      
@@ -333,27 +346,27 @@ def earth_distm(lat1,lon1,lat2,lon2):
     pid = np.pi/180
 
     if ndims == 1:
-         if lon2 < 0:
-	    lon2 = lon2 + 360
-	 if lon1 < 0:
-	    lon1 = lon1 + 360
+        if lon2 < 0:
+            lon2 = lon2 + 360
+        if lon1 < 0:
+            lon1 = lon1 + 360
 	    
-	 X = lon1
-	 Y = lat1	     
+        X = lon1
+        Y = lat1	     
     else:
 
-	if latsize > 1:
-	   [iy,ix] = np.shape(lat2)	   
+        if latsize > 1:
+            [iy,ix] = np.shape(lat2)	   
 
-	   X = np.zeros_like(lat2).astype('f')   
-	   Y = np.zeros_like(lon2).astype('f')   
-	   for ii in range(0,ix):
-               for jj in range(0,iy):   
-        	   X[jj,ii] = lon1
-		   Y[jj,ii] = lat1      
-	else:
-	   X = lon1
-	   Y = lat1   
+            X = np.zeros_like(lat2).astype('f')   
+            Y = np.zeros_like(lon2).astype('f')   
+            for ii in range(0,ix):
+                for jj in range(0,iy):   
+                    X[jj,ii] = lon1
+                    Y[jj,ii] = lat1      
+        else:
+            X = lon1
+            Y = lat1   
     	            
 
     # calculate distance
@@ -396,14 +409,14 @@ def destagger_hor_wind(ustag,vstag):
       u = np.zeros((Nz,Ny,Nx-1))
       v = np.zeros((Nz,Ny,Nx-1))
       for kk in range(0,Nz):
-	 for jj in range(0,Ny):
-            for ii in range(0,Nx-1):	 		
-        	u[kk,jj,ii] = (ustag[kk,jj,ii+1] + ustag[kk,jj,ii])/2
+          for jj in range(0,Ny):
+              for ii in range(0,Nx-1):	 		
+                  u[kk,jj,ii] = (ustag[kk,jj,ii+1] + ustag[kk,jj,ii])/2
 
       for kk in range(0,Nz):
-	 for jj in range(0,Ny):
-            for ii in range(0,Nx-1):			
-        	v[kk,jj,ii] = (vstag[kk,jj+1,ii] + vstag[kk,jj,ii])/2   
+          for jj in range(0,Ny):
+              for ii in range(0,Nx-1):			
+                  v[kk,jj,ii] = (vstag[kk,jj+1,ii] + vstag[kk,jj,ii])/2   
 
    return u,v
 def destagger_vertical(varin):
@@ -478,19 +491,19 @@ def grid_to_true_wind(lon,ug,vg,truelat1,truelat2,stdlon,proj_type):
        Ny,Nx = np.shape(diff)       
        for jj in range(0,Ny):
           for ii in range(0,Nx):	 	     
-	      diffnow = lon[jj,ii] - stdlon
-	      if diffnow > 180:
-                 diffnow = diffnow - 360
-	      if diffnow < -180:
-                 diffnow = diffnow + 360                 
+              diffnow = lon[jj,ii] - stdlon
+              if diffnow > 180:
+                  diffnow = diffnow - 360
+              if diffnow < -180:
+                  diffnow = diffnow + 360                 
        
-	      alpha = diffnow * cone * pid * 1 * np.sign(truelat1); 
-	      ut[jj,ii] = vg[jj,ii] * np.sin(alpha) + ug[jj,ii] * np.cos(alpha);
-	      vt[jj,ii] = vg[jj,ii] * np.cos(alpha) - ug[jj,ii] * np.sin(alpha);    
+              alpha = diffnow * cone * pid * 1 * np.sign(truelat1); 
+              ut[jj,ii] = vg[jj,ii] * np.sin(alpha) + ug[jj,ii] * np.cos(alpha);
+              vt[jj,ii] = vg[jj,ii] * np.cos(alpha) - ug[jj,ii] * np.sin(alpha);    
     
     else:
-       ut = ug
-       vt = vg
+        ut = ug
+        vt = vg
 
     return ut,vt
 
@@ -513,10 +526,10 @@ def autocorr(datain,endlag):
     aut = []
     for lag in range(0,endlag):
         data1 = datain[0:N-lag]
-	data1m = data1 - np.nanmean(data1)
-	data2 = datain[lag:]
-	data2m = data2 - np.nanmean(data2)
-	aut.append(np.sum(data1m*data2m)/np.sqrt(np.sum(data1m**2.0)*np.sum(data2m**2.0)))
+        data1m = data1 - np.nanmean(data1)
+        data2 = datain[lag:]
+        data2m = data2 - np.nanmean(data2)
+        aut.append(np.sum(data1m*data2m)/np.sqrt(np.sum(data1m**2.0)*np.sum(data2m**2.0)))
 
     return aut
     
@@ -743,7 +756,7 @@ def driver_xsec_old(lat, lon, cenLat, cenLon, dLat, dLon):
   
   #note that the above will fail in purpose if you input a silly dLat,
   #eg, degrees vs. radians
-  print ll0, ll1, ll2
+  print (ll0, ll1, ll2)
   
   #go minus to center
   iLat0 = np.argmin(np.absolute(lat-ll0[0]))
@@ -766,8 +779,8 @@ def genLatLonCoords(lat0, lon0, dLat, dLon, nPts):
   latCoords = np.linspace(lat0-dLat, lat0+dLat, nPts)
   lonCoords = np.linspace(lon0-dLon, lon0+dLon, nPts)
 
-  print latCoords
-  print lonCoords
+  print (latCoords)
+  print (lonCoords)
   
   #recover lats that cross pole 1x
   crossedP = latCoords<-np.pi/2
@@ -859,18 +872,18 @@ def date_to_jd(year,month,day):
     2446113.75
     """
     if month == 1 or month == 2:
-	yearp = year - 1
-	monthp = month + 12
+        yearp = year - 1
+        monthp = month + 12
     else:
-	yearp = year
-	monthp = month
+        yearp = year
+        monthp = month
     # this checks where we are in relation to October 15, 1582, the beginning
     # of the Gregorian calendar.
     if ((year < 1582) or
-	(year == 1582 and month < 10) or
-	(year == 1582 and month == 10 and day < 15)):
-	# before start of Gregorian calendar
-	B = 0
+        (year == 1582 and month < 10) or
+        (year == 1582 and month == 10 and day < 15)):
+        # before start of Gregorian calendar
+        B = 0
     else:
         # after start of Gregorian calendar
         A = math.trunc(yearp / 100.)
@@ -945,24 +958,24 @@ def smooth_onedim(x,npasses):
     """
     
     if npasses == 0:
-       print 'Number of smoothing passes is set to zero.  Set to a value greater than zero to smooth your data.'
+       print ('Number of smoothing passes is set to zero.  Set to a value greater than zero to smooth your data.')
        data = x
        return data
     
     for tt in xrange(0,npasses):       
         if tt == 0:
-	    data = np.zeros_like(x).astype('f')
-	    npts = len(x)
+            data = np.zeros_like(x).astype('f')
+            npts = len(x)
 
-	data[0] = x[1]
-	data[1] = (x[0] + x[1] + x[2])/3    
-	for ii in xrange(2,npts-2):	   
-	   data[ii] = (x[ii-2] + x[ii-1] + x[ii] + x[ii+1] + x[ii+2] ) /5
+        data[0] = x[1]
+        data[1] = (x[0] + x[1] + x[2])/3    
+        for ii in xrange(2,npts-2):	   
+            data[ii] = (x[ii-2] + x[ii-1] + x[ii] + x[ii+1] + x[ii+2] ) /5
 
-	data[npts-2] = (x[npts-3] + x[npts-2] + x[npts-1])/3
-	data[npts-1] = x[npts-1]
+        data[npts-2] = (x[npts-3] + x[npts-2] + x[npts-1])/3
+        data[npts-1] = x[npts-1]
 
-	x = data
+        x = data
     
     return data
 
