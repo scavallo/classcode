@@ -1,4 +1,4 @@
-#!/home/scavallo/anaconda2/bin/python
+#!/usr/bin/python
 
 import numpy as np
 from scipy import ndimage
@@ -141,7 +141,7 @@ def moist_lapse(ws, temp):
     ''' '''
     ''' moist_lapse: Output moist adiabatic lapse rate '''
     
-    moist_lapse = (g/Cp)*((1.0 + L*ws)/(Rd*temp)) / ( 1.0 + (ws*(L**2.0)/(Cp*Rv*temp**2.0)) )
+    moist_lapse =  (g/Cp)*(( (1.0 + (L*ws)/(Rd*temp))) / (1.0 + (ws*(L**2.0)/(Cp*Rv*temp**2.0)) ) )
     return moist_lapse
 
 
@@ -155,6 +155,17 @@ def satur_mix_ratio(es, pres):
     
     ws = 0.622 * ( es / (pres - es) )
     return ws
+
+def satur_spechum(es, pres):
+    ''' Compute saturation specific humidity '''
+    ''' '''
+    ''' es:   Input saturation vapor pressure (Pa)  '''
+    ''' pres: Input air pressure (Pa)'''
+    ''' '''
+    ''' qvs: Output saturation specific humidity'''
+    
+    qvs = (epsil * es) / ( pres - (1.0 - epsil)*es) 
+    return qvs
 
 def VirtualTempFromMixR(tempk,mixr):
     """Virtual Temperature
@@ -967,16 +978,11 @@ The horizontal convergence
     dudx, dudy, dvdx, dvdy = _get_gradients(u, v, dx, dy)
     return dudx + dvdy
 
-def geostrophic_latlon(u, v, ghgt, lats, lons):
+def geostrophic_latlon(ghgt, lats, lons):
     '''
 Calculate geostrophic wind on a latitude/longitude grid
 
 Input:
-   
-   u(lats,lons), v(lats,lons) : 2 dimensional u and v wind arrays 
-                             dimensioned by (lats,lons).
-                             Arrays correspond to the x and y 
-                 components of the wind, respectively.
                  
    ghgt(lats,lons): 2 dimensional array of geopotential height
    
@@ -992,7 +998,7 @@ Output:
                  respectively.
 '''
     # 2D latitude array
-    glats = np.zeros_like(u).astype('f')      
+    glats = np.zeros_like(ghgt).astype('f')      
     for jj in range(0,len(lats)):
         for ii in range(0,len(lons)):    
             glats[jj,ii] = lats[jj]
@@ -1245,7 +1251,7 @@ Output:
 
     return thermal_wind_u, thermal_wind_v
 
-def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
+def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs):
     """
 
    Computes the 3-D Eliassen-Palm flux vectors and divergence on a 
@@ -1259,7 +1265,6 @@ def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
        theta:     3D potential temperature (K)
        lats,lons: 1D latitude and longitude vectors
        levs:      1D pressure vector (Pa)
-       normalize_option: 0 = no normalizing, 1 = normalize by maximum value at each vertical level, 2 = standardize 
 
    Output:      
       Fx, Fy, Fz: Eliassen-Palm flux x, y, z vector components
@@ -1288,7 +1293,7 @@ def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
     for kk in range(0,iz):
         for jj in range(0,iy):            
             latarr[kk,jj,:] = lats[jj]
-            farr[kk,jj,:] = 2.0*omeg_e*np.sin(lats[jj]*(np.pi/180.0))
+            farr[kk,jj,:] = 2*omeg_e*np.sin(lats[jj]*(np.pi/180))
           
     psi = geop / farr     
     psi_anom, psi_anom_std = spatial_anomaly(psi,1) 
@@ -1297,10 +1302,10 @@ def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
     for kk in range(0,iz):      
         pres[kk,:,:] = levs[kk]
     
-    coef = pres*np.cos(latarr*(np.pi/180.0))    
-    arg1 = coef/( 2.0*np.pi*(R_earth**2)*np.cos(latarr*(np.pi/180.0))*np.cos(latarr*(np.pi/180.0)) )
-    arg2 = coef/( 2.0*np.pi*(R_earth**2)*np.cos(latarr*(np.pi/180.0)) )
-    arg3 = coef*(2.0*(omeg_e**2)*np.sin(latarr*(np.pi/180.0))*np.sin(latarr*(np.pi/180.0)))
+    coef = pres*np.cos(latarr*(np.pi/180))    
+    arg1 = coef/( 2*np.pi*(R_earth**2)*np.cos(latarr*(np.pi/180))*np.cos(latarr*(np.pi/180)) )
+    arg2 = coef/( 2*np.pi*(R_earth**2)*np.cos(latarr*(np.pi/180)) )
+    arg3 = coef*(2*(omeg_e**2)*np.sin(latarr*(np.pi/180))*np.sin(latarr*(np.pi/180)))
    
     dthdz, yy, xx = gradient_cendiff_latlon(theta, geop/g, lats, lons) 
     xx, dthdy, dthdx = gradient_cendiff_latlon(theta_anom, geop/g, lats, lons)        
@@ -1309,9 +1314,9 @@ def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
     aaa, d2psidxdz, ccc = gradient_cendiff_latlon(dpsidz, geop/g, lats, lons) 
 
     N2 = (g/theta)*(dthdz)
-    arg4 = arg3/(N2*R_earth*np.cos(latarr*(np.pi/180.0)))        
+    arg4 = arg3/(N2*R_earth*np.cos(latarr*(np.pi/180)))        
     
-    Fx = arg1*( dpsidx**2.0      - (psi_anom*d2psidx2))
+    Fx = arg1*( dpsidx**2      - (psi_anom*d2psidx2))
     Fy = arg2*((dpsidy*dpsidx) - (psi_anom*d2psidxdy))
     Fz = arg4*((dpsidx*dpsidz) - (psi_anom*d2psidxdz))          
     
@@ -1321,17 +1326,6 @@ def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs,normalize_option):
        
     divF = Fx_x + Fy_y + Fz_z
     
-    if normalize_option == 1:        
-        for kk in range(0,iz):  
-	    Fx[kk,:,:] =  Fx[kk,:,:] / np.nanmax(np.abs(Fx[kk,:,:]))
-	    Fy[kk,:,:] =  Fy[kk,:,:] / np.nanmax(np.abs(Fy[kk,:,:]))
-	    Fz[kk,:,:] =  Fz[kk,:,:] / np.nanmax(np.abs(Fz[kk,:,:]))
-    if normalize_option == 2:        
-        for kk in range(0,iz):  
-	    Fx[kk,:,:] =  Fx[kk,:,:] / np.nanstd(Fx[kk,:,:])
-	    Fy[kk,:,:] =  Fy[kk,:,:] / np.nanstd(Fy[kk,:,:])
-	    Fz[kk,:,:] =  Fz[kk,:,:] / np.nanstd(Fz[kk,:,:])    
-
     return Fx, Fy, Fz, divF
 
 
@@ -1680,7 +1674,8 @@ def readsounding(fname):
     fid=open(fname)
     lines=fid.readlines()
     nlines=len(lines)
-    ndata=nlines-34
+    #ndata=nlines-34
+    ndata = nlines-2
     output={}
     fields=lines[3].split()
     units=lines[4].split()
@@ -1697,7 +1692,7 @@ def readsounding(fname):
         dstr=(' ').join(header.split()[-4:])
         data['SoundingDate']=datetime.datetime.strptime(dstr,"%HZ %d %b %Y").strftime("%Y-%m-%d_%H:%M:%S")
     for ff in fields:
-        output[ff.lower()]=np.zeros((nlines-34))-999.
+        output[ff.lower()]=np.zeros((ndata))-999.
     lhi=[1, 9,16,23,30,37,46,53,58,65,72]
     rhi=[7,14,21,28,35,42,49,56,63,70,77]
     lcounter=5
@@ -1718,51 +1713,3 @@ def readsounding(fname):
         fieldnames[ff] = field
     
     return data, fieldnames
-
-def mean_confidence_interval(data, confidence=0.95):
-    a = 1.0*np.array(data)
-    n = len(a)
-    m, se = np.mean(a), scipy.stats.sem(a)
-    h = se * sp.stats.t.ppf((1+confidence)/2., n-1)
-    return h, m-h, m+h
-    
-
-def bootstrap(data,boot_num):
-    data = 1.0*np.array(data)
-    n = len(data)
-    boot_means = np.empty([boot_num])
-    for i in np.arange(0,boot_num,1):
-        current_boot = np.random.choice(data,n)
-        boot_means[i] = np.mean(current_boot)
-    return boot_means
-
-def bootstrap_twosamps(data1,data2,boot_num,alpha):
-    import numpy.matlib
-    data1vec = np.reshape(data1, np.prod(np.size(data1)), 1)
-    data2vec = np.reshape(data2, np.prod(np.size(data2)), 1)
-       
-    # N(datamean,var):
-    data1mean = np.nanmean(data1vec)
-    data1std = np.nanstd(data1vec)
-    data2mean = np.nanmean(data2vec)
-    data2std = np.nanstd(data2vec)
-        
-    n = len(data1vec)
-    boot_means = np.empty([boot_num])
-    for i in np.arange(0,boot_num,1):
-        boot1 = data1std*np.matlib.randn((n)) + data1mean
-	boot2 = data2std*np.matlib.randn((n)) + data2mean
-        boot_means[i] = np.nanmean(boot1) - np.nanmean(boot2)
-    
-    ci_limits = [100.0*alpha/2.0,100.0*(1.0-alpha/2.0)]
-    
-    
-    ci_upper = np.percentile(boot_means,ci_limits[0])
-    ci_lower = np.percentile(boot_means,ci_limits[1])
-    if ci_upper > ci_lower:
-        ci_limits_out = [ci_lower,ci_upper]    
-    else:
-        ci_limits_out = [ci_upper,ci_lower]  
-    return boot_means,ci_limits_out
-
-    
