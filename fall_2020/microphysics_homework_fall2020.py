@@ -44,7 +44,7 @@ rmeters = r*10**(-6)
 a = (2*sigma)/(rho_L*wm.Rv*T)
 
 # Curvature effect
-S_curvature = np.exp(a/rmeters)
+S_curvature = # Enter this
 rh_curvature = S_curvature*100
 
 # Solute effect
@@ -52,11 +52,11 @@ b = (4.3*ival*10**(-6)*msol)/Msol
 b_NaCl = (4.3*ival*10**(-6)*msol)/Msol_NaCl
 b_NaCl = (4.3*ival*msol*10**(-6.))/(Msol_NaCl)
 
-S_solute = 1.0 - (b/(rmeters**3.0))
+S_solute = # Enter this
 rh_solute = S_solute*100.
 
 # Combination of curvature and solute effect
-S_total = S_solute*S_curvature
+S_total = # Enter this
 rh_total = S_total*100.
 
 S_solute_NaCl = 1.0 - (b_NaCl/(rmeters**3.0))
