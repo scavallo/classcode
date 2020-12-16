@@ -82,9 +82,9 @@ trackStartYear = years[trackStartDate]
 trackStartDate = Dates[trackStartDate]
 
 print(len(trackLen))
-for x in range(0,np.int(0.01*len(trackLen))):
-#for x in range(0,len(trackLen)):
-    print("On point %d of %d" %(x,np.int(0.01*len(trackLen))))
+#for x in range(0,np.int(0.01*len(trackLen))):
+for x in range(0,len(trackLen)):
+    print("On point %d of %d" %(x,len(trackLen)))
     if x%10000 == 0:
         print ("On track {0}/{1}".format(x,len(trackLen)))
     if trackLen[x] < ntracks_min: # checking to make sure TPV track was longer than two days
