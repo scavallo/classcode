@@ -107,8 +107,8 @@ if plot_variable == 3:
    xlabeltext = 'Kelvin'
    figname_prefix = 'tpv_medianamplitude_comparisons'
 
-#for x in range(0,len(trackLen)):
-for x in range(0,60000):
+for x in range(0,len(trackLen)):
+#for x in range(0,60000):
   if x%10000 == 0:
     print ("On track {0}/{1}".format(x,len(trackLen)))
   if trackLen[x] < 8: # checking to make sure TPV track was longer than two days
