@@ -15,7 +15,9 @@ def nan2zero(data):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1) 
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));          
     
     # Find indices with NaNs
     inds = np.argwhere(np.isnan(temp))    
@@ -24,7 +26,9 @@ def nan2zero(data):
     temp[inds] = 0.                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))  
  
     return data
 
@@ -35,7 +39,9 @@ def nan2replace(data,replace_value):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)  
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));             
     
     # Find indices with NaNs
     inds = np.argwhere(np.isnan(temp))    
@@ -44,7 +50,9 @@ def nan2replace(data,replace_value):
     temp[inds] = replace_value                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))     
  
     return data
 
@@ -55,7 +63,9 @@ def zero2nan(data):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)  
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));     
     
     # Find indices with NaNs
     inds = np.argwhere(temp==0)    
@@ -64,7 +74,9 @@ def zero2nan(data):
     temp[inds] = float('NaN')                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens)) 
  
     return data
 
@@ -76,7 +88,9 @@ def FixNaNs(arr):
     dimens = np.shape(arr)
     
     # Temporarily collapse data array
-    temp = np.reshape(arr,np.prod(np.size(arr)), 1) 
+    #temp = np.reshape(arr,np.prod(np.size(arr)), 1) 
+    # SMC: New August 2021
+    temp = np.reshape(arr, (np.prod(np.size(arr)),1));
               
     idxs=np.nonzero(temp==temp)[0]
 
@@ -92,7 +106,9 @@ def FixNaNs(arr):
         ret[i]=ret[idxs[-1]]
 
     # Turn vector back into array
-    data = np.reshape(ret,dimens,order='F').copy()
+    #data = np.reshape(ret,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(ret,(dimens))    
     
     return data
 
@@ -106,10 +122,12 @@ def filter_numeric_nans(data,thresh,repl_val,high_or_low) :
 
 
     dimens = np.shape(data)    
-    temp = np.reshape(data,np.prod(np.size(data)), 1)    
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)     
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));
     if high_or_low=='high':        	
 	    inds = np.argwhere(temp>thresh) 	
-	    temp[inds] = repl_val	  
+	    temp[inds] = repl_val	 
     elif high_or_low=='low':    
         inds = np.argwhere(temp<thresh) 
         temp[inds] = repl_val	  
@@ -118,13 +136,16 @@ def filter_numeric_nans(data,thresh,repl_val,high_or_low) :
         temp[inds] = repl_val
         del inds
        	inds = np.argwhere(temp<-thresh) 	
-        temp[inds] = -repl_val	                 
+        #temp[inds] = -repl_val	 
+        temp[inds[1:,0]] = -repl_val                
     else:
         inds = np.argwhere(temp>thresh) 
         temp[inds] = repl_val	  
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))
     
  
     return data    
@@ -179,7 +200,7 @@ def advance_time(timestrin,timeinc):
     '''             Use a negative sign to decrement '''
     
     import datetime
-        
+         
     yyyy = timestrin[0:4]
     mm = timestrin[4:6]
     dd = timestrin[6:8]
@@ -513,7 +534,7 @@ def autocorr(datain,endlag):
     
     Input: 
          datain[0:N] is a data time series of size N
-	 endlag is the number of time steps to find autocorrelation
+	     endlag is the number of time steps to find autocorrelation
     Output:
     	 aut[0:endlag] is the autocorrelation of datain from lag 0 to time step endlag	 
     
@@ -532,6 +553,62 @@ def autocorr(datain,endlag):
         aut.append(np.sum(data1m*data2m)/np.sqrt(np.sum(data1m**2.0)*np.sum(data2m**2.0)))
 
     return aut
+
+def red_noise_spectrum(datam,conf,chunk_length,rr):
+    '''
+	red_noise_spectrum(datam,conf,chunk_length,rr)
+	
+	Determines the 95 and 99 percent confidence level factors for a red noise spectrum
+	
+	Input:
+	    datam: data time series 
+	    conf: either 95 or 99 for 95% confidence or 99% confidence interval, respectively
+	    chunk_length: Chunk length, in days
+	    rr: one-step autocorrelation
+	Output:
+	    spectout_red: Red noise spectrum
+		specout_red_sig: The red noise spectrum's confidence interval (specout_red*specin)
+	    fstat: The factors specin is multiplied by    
+	    
+	Steven Cavallo
+	July 2020
+    '''
+    
+    N = len(datam)
+    dof = (2*N)/chunk_length
+    print('Degrees of freedom for red noise test is %5.2f' %(dof))
+    specout_red = np.zeros(N)
+    Nr = np.int(N/2)
+    freq=np.arange(0,Nr,1)/N
+    # This is the expected red noise spectrum: Equation (9.77) of Wilks 3rd edition (2011), using also equation (9.22)
+    for ii in range(0,Nr,1):
+        white_noise_var = (1.0-rr**2.0)*np.var(datam)
+        #xr[ii] = ((4.0*white_noise_var)/Nr)/(1.0 + (rr**2.0) - (2.0*rr*np.cos(2.*np.pi*(freq[ii]))))
+        specout_red[ii] = ((4.0*white_noise_var)/((Nr-1)/(Nr-2)))/(1.0 + (rr**2.0) - (2.0*rr*np.cos(2.*np.pi*(freq[ii]))))
+
+
+    f95 = [3.84,3.00,2.60,2.37,2.21,2.10,2.01,1.94,1.88,1.83,1.75,1.67,1.57,1.52,1.46,1.39,1.38,1.32,1.22,1.00]
+    n95 = [1,2,3,4,5,6,7,8,9,10,12,15,20,24,30,40,50,60,120,1000000]
+    f99 = [6.63,4.61,3.78,3,32,3.02,2.80,2.64,2.51,2.41,2.31,2.18,2.04,1.88,1.79,1.70,1.59,1.56,1.47,1.32,1.00]
+    n99 = n95
+        
+    if conf==95:
+        fstat = f95[-1]
+        NF = np.size(f95)
+        for ii in range(NF):
+            if (dof <= n95[ii]):       
+                fstat = f95[ii-1]+(dof-n95[ii-1])*(f95[ii]-f95[ii-1])/(n95[ii]-n95[ii-1])
+                break   
+    elif conf == 99:  
+        fstat = f99[-1]
+        NF = np.size(f99)
+        for ii in range(NF):
+            if (dof <= n99[ii]):        
+                fstat = f99[ii-1]+(dof-n99[ii-1])*(f99[ii]-f99[ii-1])/(n99[ii]-n99[ii-1])  
+                break
+  
+    specout_red_sig = specout_red*fstat
+    return specout_red, specout_red_sig, fstat
     
 def xsection_inds(slon, slat, elon, elat, lons, lats, m):
     '''
@@ -962,14 +1039,14 @@ def smooth_onedim(x,npasses):
        data = x
        return data
     
-    for tt in xrange(0,npasses):       
+    for tt in range(0,npasses):       
         if tt == 0:
             data = np.zeros_like(x).astype('f')
             npts = len(x)
 
         data[0] = x[1]
         data[1] = (x[0] + x[1] + x[2])/3    
-        for ii in xrange(2,npts-2):	   
+        for ii in range(2,npts-2):	   
             data[ii] = (x[ii-2] + x[ii-1] + x[ii] + x[ii+1] + x[ii+2] ) /5
 
         data[npts-2] = (x[npts-3] + x[npts-2] + x[npts-1])/3

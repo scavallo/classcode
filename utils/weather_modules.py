@@ -141,7 +141,7 @@ def moist_lapse(ws, temp):
     ''' '''
     ''' moist_lapse: Output moist adiabatic lapse rate '''
     
-    moist_lapse = (g/Cp)*((1.0 + L*ws)/(Rd*temp)) / ( 1.0 + (ws*(L**2.0)/(Cp*Rv*temp**2.0)) )
+    moist_lapse =  (g/Cp)*(( (1.0 + (L*ws)/(Rd*temp))) / (1.0 + (ws*(L**2.0)/(Cp*Rv*temp**2.0)) ) )
     return moist_lapse
 
 
@@ -155,6 +155,17 @@ def satur_mix_ratio(es, pres):
     
     ws = 0.622 * ( es / (pres - es) )
     return ws
+
+def satur_spechum(es, pres):
+    ''' Compute saturation specific humidity '''
+    ''' '''
+    ''' es:   Input saturation vapor pressure (Pa)  '''
+    ''' pres: Input air pressure (Pa)'''
+    ''' '''
+    ''' qvs: Output saturation specific humidity'''
+    
+    qvs = (epsil * es) / ( pres - (1.0 - epsil)*es) 
+    return qvs
 
 def VirtualTempFromMixR(tempk,mixr):
     """Virtual Temperature
@@ -661,12 +672,12 @@ def gradient_sphere(f, *varargs):
     outvals = []
 
     dlats = np.zeros_like(lats).astype(otype)
-    dlats[1:-1] = (lats[2:] - lats[:-2])
+    dlats[1:-1] = ((lats[2:] - lats[:-2]))/2.
     dlats[0] = (lats[1] - lats[0])
     dlats[-1] = (dlats[-2] - dlats[-1])
 
     dlons = np.zeros_like(lons).astype(otype)
-    dlons[1:-1] = (lons[2:] - lons[:-2])
+    dlons[1:-1] = ((lons[2:] - lons[:-2]))/2.
     dlons[0] = (lons[1] - lons[0])
     dlons[-1] = (dlons[-2] - dlons[-1])
 
@@ -833,12 +844,12 @@ def gradient_cendiff_latlon(f, *varargs):
     outvals = []
 
     dlats = np.zeros_like(lats).astype(otype)
-    dlats[1:-1] = (lats[2:] - lats[:-2])
+    dlats[1:-1] = ((lats[2:] - lats[:-2]))/2.
     dlats[0] = (lats[1] - lats[0])
     dlats[-1] = (dlats[-2] - dlats[-1])
 
     dlons = np.zeros_like(lons).astype(otype)
-    dlons[1:-1] = (lons[2:] - lons[:-2])
+    dlons[1:-1] = ((lons[2:] - lons[:-2]))/2.
     dlons[0] = (lons[1] - lons[0])
     dlons[-1] = (dlons[-2] - dlons[-1])
 
@@ -1663,7 +1674,8 @@ def readsounding(fname):
     fid=open(fname)
     lines=fid.readlines()
     nlines=len(lines)
-    ndata=nlines-34
+    #ndata=nlines-34
+    ndata = nlines-2
     output={}
     fields=lines[3].split()
     units=lines[4].split()
@@ -1680,7 +1692,7 @@ def readsounding(fname):
         dstr=(' ').join(header.split()[-4:])
         data['SoundingDate']=datetime.datetime.strptime(dstr,"%HZ %d %b %Y").strftime("%Y-%m-%d_%H:%M:%S")
     for ff in fields:
-        output[ff.lower()]=np.zeros((nlines-34))-999.
+        output[ff.lower()]=np.zeros((ndata))-999.
     lhi=[1, 9,16,23,30,37,46,53,58,65,72]
     rhi=[7,14,21,28,35,42,49,56,63,70,77]
     lcounter=5
@@ -1701,3 +1713,113 @@ def readsounding(fname):
         fieldnames[ff] = field
     
     return data, fieldnames
+
+def barometric_equation(presb_pa,tempb_k,deltah_m,Gamma=-0.0065):
+    """The barometric equation models the change in pressure with 
+    height in the atmosphere.
+
+    INPUTS: 
+    presb_k (pa):     The base pressure
+    tempb_k (K):      The base temperature
+    deltah_m (m):     The height differential between the base height and the 
+                      desired height
+    Gamma [=-0.0065]: The atmospheric lapse rate
+
+    OUTPUTS
+    pres (pa):        Pressure at the requested level
+
+    REFERENCE:
+    http://en.wikipedia.org/wiki/Barometric_formula
+    """
+
+    return presb_pa*(tempb_k/(tempb_k+Gamma*deltah_m))**(g*m_a/(Rstar_a*Gamma))
+
+def barometric_equation_inv(heightb_m,tempb_k,presb_pa,prest_pa,Gamma=-0.0065):
+    """The barometric equation models the change in pressure with height in 
+    the atmosphere. This function returns altitude given 
+    initial pressure and base altitude, and pressure change.
+
+    INPUTS: 
+    heightb_m (m):
+    presb_pa (pa):    The base pressure
+    tempb_k (K)  :    The base temperature
+    deltap_pa (m):    The pressure differential between the base height and the 
+                      desired height
+
+    Gamma [=-0.0065]: The atmospheric lapse rate
+
+    OUTPUTS
+    heightt_m
+
+    REFERENCE:
+    http://en.wikipedia.org/wiki/Barometric_formula
+    """
+
+
+    return heightb_m + tempb_k*((presb_pa/prest_pa)**(Rstar_a*Gamma/(g*m_a))-1)/Gamma
+
+def mean_confidence_interval(data, confidence=0.95):
+    a = 1.0*np.array(data)
+    n = len(a)
+    m, se = np.mean(a), scipy.stats.sem(a)
+    h = se * sp.stats.t.ppf((1+confidence)/2., n-1)
+    return h, m-h, m+h
+    
+
+def bootstrap(data,boot_num,alpha):
+    import numpy.matlib
+    data = 1.0*np.array(data)
+    datavec = np.reshape(data, np.prod(np.size(data)), 1)
+    n = len(datavec)
+    boot_means = np.empty([boot_num])
+    for i in np.arange(0,boot_num,1):
+        #current_boot = np.random.choice(data,n)
+        current_boot = np.nanstd(datavec)*np.matlib.randn((n)) + np.nanmean(datavec)
+        boot_means[i] = np.nanmean(current_boot)
+    
+    ci_limits = [100.0*alpha/2.0,100.0*(1.0-alpha/2.0)]
+        
+    ci_upper = np.percentile(boot_means,ci_limits[0])
+    ci_lower = np.percentile(boot_means,ci_limits[1])
+    if ci_upper > ci_lower:
+        ci_limits_out = [ci_lower,ci_upper]    
+    else:
+        ci_limits_out = [ci_upper,ci_lower]  
+
+    return boot_means,ci_limits_out
+
+def bootstrap_twosamps(data1,data2,boot_num,alpha):
+    import numpy.matlib
+ 
+    #data1vec = np.reshape(data1, np.prod(np.size(data1)), 1)
+    #data2vec = np.reshape(data2, np.prod(np.size(data2)), 1)
+    data1vec = np.reshape(data1, (np.prod(np.size(data1),0)))
+    data2vec = np.reshape(data2, (np.prod(np.size(data2),0)))     
+       
+    # N(datamean,var):
+    data1mean = np.nanmean(data1vec)
+    data1std = np.nanstd(data1vec)
+    data2mean = np.nanmean(data2vec)
+    data2std = np.nanstd(data2vec)
+    
+        
+    n = len(data1vec)
+    n2 = len(data2vec)
+    boot_means = np.empty([boot_num])
+    for i in np.arange(0,boot_num,1):
+        boot1 = data1std*np.matlib.randn((n)) + data1mean
+        boot2 = data2std*np.matlib.randn((n2)) + data2mean
+        boot_means[i] = np.nanmean(boot1) - np.nanmean(boot2)
+    
+    ci_limits = [100.0*alpha/2.0,100.0*(1.0-alpha/2.0)]
+    
+    
+    ci_upper = np.percentile(boot_means,ci_limits[0])
+    ci_lower = np.percentile(boot_means,ci_limits[1])
+    if ci_upper > ci_lower:
+        ci_limits_out = [ci_lower,ci_upper]    
+    else:
+        ci_limits_out = [ci_upper,ci_lower]  
+    return boot_means,ci_limits_out
+
+    
