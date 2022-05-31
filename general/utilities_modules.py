@@ -1,9 +1,9 @@
-#!/home/scavallo/anaconda2/bin/python
+#!/usr/bin/python
 
 import numpy as np
 #import matplotlib.pyplot as mpl
 import matplotlib as plt
-from mpl_toolkits.basemap import Basemap, addcyclic 
+#from mpl_toolkits.basemap import Basemap, addcyclic 
 import math
 
 from mstats import *
@@ -15,7 +15,9 @@ def nan2zero(data):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1) 
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));          
     
     # Find indices with NaNs
     inds = np.argwhere(np.isnan(temp))    
@@ -24,7 +26,9 @@ def nan2zero(data):
     temp[inds] = 0.                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))  
  
     return data
 
@@ -35,7 +39,9 @@ def nan2replace(data,replace_value):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)  
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));             
     
     # Find indices with NaNs
     inds = np.argwhere(np.isnan(temp))    
@@ -44,7 +50,9 @@ def nan2replace(data,replace_value):
     temp[inds] = replace_value                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))     
  
     return data
 
@@ -55,7 +63,9 @@ def zero2nan(data):
     dimens = np.shape(data)
                
     # Temporarily collapse data array
-    temp = np.reshape(data,np.prod(np.size(data)), 1)       
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)  
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));     
     
     # Find indices with NaNs
     inds = np.argwhere(temp==0)    
@@ -64,7 +74,9 @@ def zero2nan(data):
     temp[inds] = float('NaN')                 
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens)) 
  
     return data
 
@@ -76,7 +88,9 @@ def FixNaNs(arr):
     dimens = np.shape(arr)
     
     # Temporarily collapse data array
-    temp = np.reshape(arr,np.prod(np.size(arr)), 1) 
+    #temp = np.reshape(arr,np.prod(np.size(arr)), 1) 
+    # SMC: New August 2021
+    temp = np.reshape(arr, (np.prod(np.size(arr)),1));
               
     idxs=np.nonzero(temp==temp)[0]
 
@@ -92,7 +106,9 @@ def FixNaNs(arr):
         ret[i]=ret[idxs[-1]]
 
     # Turn vector back into array
-    data = np.reshape(ret,dimens,order='F').copy()
+    #data = np.reshape(ret,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(ret,(dimens))    
     
     return data
 
@@ -106,29 +122,47 @@ def filter_numeric_nans(data,thresh,repl_val,high_or_low) :
 
 
     dimens = np.shape(data)    
-    temp = np.reshape(data,np.prod(np.size(data)), 1)    
+    #temp = np.reshape(data,np.prod(np.size(data)), 1)     
+    # SMC: New August 2021
+    temp = np.reshape(data, (np.prod(np.size(data)),1));
     if high_or_low=='high':        	
-	inds = np.argwhere(temp>thresh) 	
-	temp[inds] = repl_val	  
+	    inds = np.argwhere(temp>thresh) 	
+	    temp[inds] = repl_val	 
     elif high_or_low=='low':    
         inds = np.argwhere(temp<thresh) 
-	temp[inds] = repl_val	  
+        temp[inds] = repl_val	  
     elif high_or_low =='both':
        	inds = np.argwhere(temp>thresh) 	
-	temp[inds] = repl_val
-	del inds
+        temp[inds] = repl_val
+        del inds
        	inds = np.argwhere(temp<-thresh) 	
-	temp[inds] = -repl_val	                 
+        #temp[inds] = -repl_val	 
+        temp[inds[1:,0]] = -repl_val                
     else:
         inds = np.argwhere(temp>thresh) 
-	temp[inds] = repl_val	  
+        temp[inds] = repl_val	  
     
     # Turn vector back into array
-    data = np.reshape(temp,dimens,order='F').copy()
+    #data = np.reshape(temp,dimens,order='F').copy()
+    # SMC new August 2021
+    data = np.reshape(temp,(dimens))
     
  
     return data    
-    
+def label_options(ax,fontsize=None,xaxis_opt=True,yaxis_opt=True,bold_opt=True):
+    if fontsize is None:
+        fontsize = 14
+    if xaxis_opt == True:   
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label1.set_fontsize(fontsize)
+            if bold_opt == True:
+                tick.label1.set_fontweight('bold')
+    if yaxis_opt == True:      
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label1.set_fontsize(fontsize)
+            if bold_opt == 'True':
+                tick.label1.set_fontweight('bold')
+            
 def bold_labels(ax,fontsize=None):
     if fontsize is None:
         fontsize = 14
@@ -147,13 +181,13 @@ def bold_labels(ax,fontsize=None):
 #    m.drawmapboundary
     
 def lonswap(d,subtract=0.):
-        sh = np.shape(d)	
-	midl = sh[1]/2	
-	midl = np.round(midl)
-	h=d[:,midl:].copy()-subtract
-	d[:,midl:]=d[:,:midl].copy()
-	d[:,:midl]=h
-	return d
+    sh = np.shape(d)	
+    midl = sh[1]/2	
+    midl = np.round(midl)
+    h=d[:,midl:].copy()-subtract
+    d[:,midl:]=d[:,:midl].copy()
+    d[:,:midl]=h
+    return d
 	    
 def periodic(d,add=0.):
 	return np.append( d, (d[:,0].copy()+add).reshape(-1,1) , 1)    
@@ -166,7 +200,7 @@ def advance_time(timestrin,timeinc):
     '''             Use a negative sign to decrement '''
     
     import datetime
-        
+         
     yyyy = timestrin[0:4]
     mm = timestrin[4:6]
     dd = timestrin[6:8]
@@ -284,8 +318,8 @@ def cmap_whitezero(cmap,N,Nwhites,pos):
        colors[mid] = 1.
        isodd = 0
        if ( np.mod(N,2) == 0 ) :           
-	  colors[mid-1] = 1.
-	  isodd = 1
+           colors[mid-1] = 1.
+           isodd = 1
        kk=mid-nadd
        kend=mid+nadd 
        if ( kk < kend ) :      
@@ -333,27 +367,27 @@ def earth_distm(lat1,lon1,lat2,lon2):
     pid = np.pi/180
 
     if ndims == 1:
-         if lon2 < 0:
-	    lon2 = lon2 + 360
-	 if lon1 < 0:
-	    lon1 = lon1 + 360
+        if lon2 < 0:
+            lon2 = lon2 + 360
+        if lon1 < 0:
+            lon1 = lon1 + 360
 	    
-	 X = lon1
-	 Y = lat1	     
+        X = lon1
+        Y = lat1	     
     else:
 
-	if latsize > 1:
-	   [iy,ix] = np.shape(lat2)	   
+        if latsize > 1:
+            [iy,ix] = np.shape(lat2)	   
 
-	   X = np.zeros_like(lat2).astype('f')   
-	   Y = np.zeros_like(lon2).astype('f')   
-	   for ii in range(0,ix):
-               for jj in range(0,iy):   
-        	   X[jj,ii] = lon1
-		   Y[jj,ii] = lat1      
-	else:
-	   X = lon1
-	   Y = lat1   
+            X = np.zeros_like(lat2).astype('f')   
+            Y = np.zeros_like(lon2).astype('f')   
+            for ii in range(0,ix):
+                for jj in range(0,iy):   
+                    X[jj,ii] = lon1
+                    Y[jj,ii] = lat1      
+        else:
+            X = lon1
+            Y = lat1   
     	            
 
     # calculate distance
@@ -396,14 +430,14 @@ def destagger_hor_wind(ustag,vstag):
       u = np.zeros((Nz,Ny,Nx-1))
       v = np.zeros((Nz,Ny,Nx-1))
       for kk in range(0,Nz):
-	 for jj in range(0,Ny):
-            for ii in range(0,Nx-1):	 		
-        	u[kk,jj,ii] = (ustag[kk,jj,ii+1] + ustag[kk,jj,ii])/2
+          for jj in range(0,Ny):
+              for ii in range(0,Nx-1):	 		
+                  u[kk,jj,ii] = (ustag[kk,jj,ii+1] + ustag[kk,jj,ii])/2
 
       for kk in range(0,Nz):
-	 for jj in range(0,Ny):
-            for ii in range(0,Nx-1):			
-        	v[kk,jj,ii] = (vstag[kk,jj+1,ii] + vstag[kk,jj,ii])/2   
+          for jj in range(0,Ny):
+              for ii in range(0,Nx-1):			
+                  v[kk,jj,ii] = (vstag[kk,jj+1,ii] + vstag[kk,jj,ii])/2   
 
    return u,v
 def destagger_vertical(varin):
@@ -478,19 +512,19 @@ def grid_to_true_wind(lon,ug,vg,truelat1,truelat2,stdlon,proj_type):
        Ny,Nx = np.shape(diff)       
        for jj in range(0,Ny):
           for ii in range(0,Nx):	 	     
-	      diffnow = lon[jj,ii] - stdlon
-	      if diffnow > 180:
-                 diffnow = diffnow - 360
-	      if diffnow < -180:
-                 diffnow = diffnow + 360                 
+              diffnow = lon[jj,ii] - stdlon
+              if diffnow > 180:
+                  diffnow = diffnow - 360
+              if diffnow < -180:
+                  diffnow = diffnow + 360                 
        
-	      alpha = diffnow * cone * pid * 1 * np.sign(truelat1); 
-	      ut[jj,ii] = vg[jj,ii] * np.sin(alpha) + ug[jj,ii] * np.cos(alpha);
-	      vt[jj,ii] = vg[jj,ii] * np.cos(alpha) - ug[jj,ii] * np.sin(alpha);    
+              alpha = diffnow * cone * pid * 1 * np.sign(truelat1); 
+              ut[jj,ii] = vg[jj,ii] * np.sin(alpha) + ug[jj,ii] * np.cos(alpha);
+              vt[jj,ii] = vg[jj,ii] * np.cos(alpha) - ug[jj,ii] * np.sin(alpha);    
     
     else:
-       ut = ug
-       vt = vg
+        ut = ug
+        vt = vg
 
     return ut,vt
 
@@ -500,7 +534,7 @@ def autocorr(datain,endlag):
     
     Input: 
          datain[0:N] is a data time series of size N
-	 endlag is the number of time steps to find autocorrelation
+	     endlag is the number of time steps to find autocorrelation
     Output:
     	 aut[0:endlag] is the autocorrelation of datain from lag 0 to time step endlag	 
     
@@ -513,12 +547,68 @@ def autocorr(datain,endlag):
     aut = []
     for lag in range(0,endlag):
         data1 = datain[0:N-lag]
-	data1m = data1 - np.nanmean(data1)
-	data2 = datain[lag:]
-	data2m = data2 - np.nanmean(data2)
-	aut.append(np.sum(data1m*data2m)/np.sqrt(np.sum(data1m**2.0)*np.sum(data2m**2.0)))
+        data1m = data1 - np.nanmean(data1)
+        data2 = datain[lag:]
+        data2m = data2 - np.nanmean(data2)
+        aut.append(np.sum(data1m*data2m)/np.sqrt(np.sum(data1m**2.0)*np.sum(data2m**2.0)))
 
     return aut
+
+def red_noise_spectrum(datam,conf,chunk_length,rr):
+    '''
+	red_noise_spectrum(datam,conf,chunk_length,rr)
+	
+	Determines the 95 and 99 percent confidence level factors for a red noise spectrum
+	
+	Input:
+	    datam: data time series 
+	    conf: either 95 or 99 for 95% confidence or 99% confidence interval, respectively
+	    chunk_length: Chunk length, in days
+	    rr: one-step autocorrelation
+	Output:
+	    spectout_red: Red noise spectrum
+		specout_red_sig: The red noise spectrum's confidence interval (specout_red*specin)
+	    fstat: The factors specin is multiplied by    
+	    
+	Steven Cavallo
+	July 2020
+    '''
+    
+    N = len(datam)
+    dof = (2*N)/chunk_length
+    print('Degrees of freedom for red noise test is %5.2f' %(dof))
+    specout_red = np.zeros(N)
+    Nr = np.int(N/2)
+    freq=np.arange(0,Nr,1)/N
+    # This is the expected red noise spectrum: Equation (9.77) of Wilks 3rd edition (2011), using also equation (9.22)
+    for ii in range(0,Nr,1):
+        white_noise_var = (1.0-rr**2.0)*np.var(datam)
+        #xr[ii] = ((4.0*white_noise_var)/Nr)/(1.0 + (rr**2.0) - (2.0*rr*np.cos(2.*np.pi*(freq[ii]))))
+        specout_red[ii] = ((4.0*white_noise_var)/((Nr-1)/(Nr-2)))/(1.0 + (rr**2.0) - (2.0*rr*np.cos(2.*np.pi*(freq[ii]))))
+
+
+    f95 = [3.84,3.00,2.60,2.37,2.21,2.10,2.01,1.94,1.88,1.83,1.75,1.67,1.57,1.52,1.46,1.39,1.38,1.32,1.22,1.00]
+    n95 = [1,2,3,4,5,6,7,8,9,10,12,15,20,24,30,40,50,60,120,1000000]
+    f99 = [6.63,4.61,3.78,3,32,3.02,2.80,2.64,2.51,2.41,2.31,2.18,2.04,1.88,1.79,1.70,1.59,1.56,1.47,1.32,1.00]
+    n99 = n95
+        
+    if conf==95:
+        fstat = f95[-1]
+        NF = np.size(f95)
+        for ii in range(NF):
+            if (dof <= n95[ii]):       
+                fstat = f95[ii-1]+(dof-n95[ii-1])*(f95[ii]-f95[ii-1])/(n95[ii]-n95[ii-1])
+                break   
+    elif conf == 99:  
+        fstat = f99[-1]
+        NF = np.size(f99)
+        for ii in range(NF):
+            if (dof <= n99[ii]):        
+                fstat = f99[ii-1]+(dof-n99[ii-1])*(f99[ii]-f99[ii-1])/(n99[ii]-n99[ii-1])  
+                break
+  
+    specout_red_sig = specout_red*fstat
+    return specout_red, specout_red_sig, fstat
     
 def xsection_inds(slon, slat, elon, elat, lons, lats, m):
     '''
@@ -743,7 +833,7 @@ def driver_xsec_old(lat, lon, cenLat, cenLon, dLat, dLon):
   
   #note that the above will fail in purpose if you input a silly dLat,
   #eg, degrees vs. radians
-  print ll0, ll1, ll2
+  print (ll0, ll1, ll2)
   
   #go minus to center
   iLat0 = np.argmin(np.absolute(lat-ll0[0]))
@@ -766,8 +856,8 @@ def genLatLonCoords(lat0, lon0, dLat, dLon, nPts):
   latCoords = np.linspace(lat0-dLat, lat0+dLat, nPts)
   lonCoords = np.linspace(lon0-dLon, lon0+dLon, nPts)
 
-  print latCoords
-  print lonCoords
+  print (latCoords)
+  print (lonCoords)
   
   #recover lats that cross pole 1x
   crossedP = latCoords<-np.pi/2
@@ -859,18 +949,18 @@ def date_to_jd(year,month,day):
     2446113.75
     """
     if month == 1 or month == 2:
-	yearp = year - 1
-	monthp = month + 12
+        yearp = year - 1
+        monthp = month + 12
     else:
-	yearp = year
-	monthp = month
+        yearp = year
+        monthp = month
     # this checks where we are in relation to October 15, 1582, the beginning
     # of the Gregorian calendar.
     if ((year < 1582) or
-	(year == 1582 and month < 10) or
-	(year == 1582 and month == 10 and day < 15)):
-	# before start of Gregorian calendar
-	B = 0
+        (year == 1582 and month < 10) or
+        (year == 1582 and month == 10 and day < 15)):
+        # before start of Gregorian calendar
+        B = 0
     else:
         # after start of Gregorian calendar
         A = math.trunc(yearp / 100.)
@@ -945,26 +1035,63 @@ def smooth_onedim(x,npasses):
     """
     
     if npasses == 0:
-       print 'Number of smoothing passes is set to zero.  Set to a value greater than zero to smooth your data.'
+       print ('Number of smoothing passes is set to zero.  Set to a value greater than zero to smooth your data.')
        data = x
        return data
     
-    for tt in xrange(0,npasses):       
+    for tt in range(0,npasses):       
         if tt == 0:
-	    data = np.zeros_like(x).astype('f')
-	    npts = len(x)
+            data = np.zeros_like(x).astype('f')
+            npts = len(x)
 
-	data[0] = x[1]
-	data[1] = (x[0] + x[1] + x[2])/3    
-	for ii in xrange(2,npts-2):	   
-	   data[ii] = (x[ii-2] + x[ii-1] + x[ii] + x[ii+1] + x[ii+2] ) /5
+        data[0] = x[1]
+        data[1] = (x[0] + x[1] + x[2])/3    
+        for ii in range(2,npts-2):	   
+            data[ii] = (x[ii-2] + x[ii-1] + x[ii] + x[ii+1] + x[ii+2] ) /5
 
-	data[npts-2] = (x[npts-3] + x[npts-2] + x[npts-1])/3
-	data[npts-1] = x[npts-1]
+        data[npts-2] = (x[npts-3] + x[npts-2] + x[npts-1])/3
+        data[npts-1] = x[npts-1]
 
-	x = data
+        x = data
     
     return data
+
+def mjd_to_jd(mjd):
+    """
+    Convert Modified Julian Day to Julian Day.
+        
+    Parameters
+    ----------
+    mjd : float
+        Modified Julian Day
+        
+    Returns
+    -------
+    jd : float
+        Julian Day
+    
+        
+    """
+    return mjd + 2400000.5
+
+    
+def jd_to_mjd(jd):
+    """
+    Convert Julian Day to Modified Julian Day
+    
+    Parameters
+    ----------
+    jd : float
+        Julian Day
+        
+    Returns
+    -------
+    mjd : float
+        Modified Julian Day
+    
+    """
+    return jd - 2400000.5
+
 
 def date_to_jd(year,month,day):
     """
@@ -998,7 +1125,7 @@ def date_to_jd(year,month,day):
     2446113.75
     
     """
-    if ( (month == 1) or (month == 2) ):
+    if month == 1 or month == 2:
         yearp = year - 1
         monthp = month + 12
     else:
@@ -1026,4 +1153,242 @@ def date_to_jd(year,month,day):
     
     jd = B + C + D + day + 1720994.5
     
-    return jd    
+    return jd
+def jd_to_date(jd):
+    """
+    Convert Julian Day to date.
+    
+    Algorithm from 'Practical Astronomy with your Calculator or Spreadsheet', 
+        4th ed., Duffet-Smith and Zwart, 2011.
+    
+    Parameters
+    ----------
+    jd : float
+        Julian Day
+        
+    Returns
+    -------
+    year : int
+        Year as integer. Years preceding 1 A.D. should be 0 or negative.
+        The year before 1 A.D. is 0, 10 B.C. is year -9.
+        
+    month : int
+        Month as integer, Jan = 1, Feb. = 2, etc.
+    
+    day : float
+        Day, may contain fractional part.
+        
+    Examples
+    --------
+    Convert Julian Day 2446113.75 to year, month, and day.
+    
+    >>> jd_to_date(2446113.75)
+    (1985, 2, 17.25)
+    
+    """
+    jd = jd + 0.5
+    
+    F, I = math.modf(jd)
+    I = int(I)
+    
+    A = math.trunc((I - 1867216.25)/36524.25)
+    
+    if I > 2299160:
+        B = I + 1 + A - math.trunc(A / 4.)
+    else:
+        B = I
+        
+    C = B + 1524
+    
+    D = math.trunc((C - 122.1) / 365.25)
+    
+    E = math.trunc(365.25 * D)
+    
+    G = math.trunc((C - E) / 30.6001)
+    
+    day = C - E + F - math.trunc(30.6001 * G)
+    
+    if G < 13.5:
+        month = G - 1
+    else:
+        month = G - 13
+        
+    if month > 2.5:
+        year = D - 4716
+    else:
+        year = D - 4715
+        
+    return year, month, day
+    
+    
+def hmsm_to_days(hour=0,min=0,sec=0,micro=0):
+    """
+    Convert hours, minutes, seconds, and microseconds to fractional days.
+    
+    Parameters
+    ----------
+    hour : int, optional
+        Hour number. Defaults to 0.
+    
+    min : int, optional
+        Minute number. Defaults to 0.
+    
+    sec : int, optional
+        Second number. Defaults to 0.
+    
+    micro : int, optional
+        Microsecond number. Defaults to 0.
+        
+    Returns
+    -------
+    days : float
+        Fractional days.
+        
+    Examples
+    --------
+    >>> hmsm_to_days(hour=6)
+    0.25
+    
+    """
+    days = sec + (micro / 1.e6)
+    
+    days = min + (days / 60.)
+    
+    days = hour + (days / 60.)
+    
+    return days / 24.
+    
+    
+def days_to_hmsm(days):
+    """
+    Convert fractional days to hours, minutes, seconds, and microseconds.
+    Precision beyond microseconds is rounded to the nearest microsecond.
+    
+    Parameters
+    ----------
+    days : float
+        A fractional number of days. Must be less than 1.
+        
+    Returns
+    -------
+    hour : int
+        Hour number.
+    
+    min : int
+        Minute number.
+    
+    sec : int
+        Second number.
+    
+    micro : int
+        Microsecond number.
+        
+    Raises
+    ------
+    ValueError
+        If `days` is >= 1.
+        
+    Examples
+    --------
+    >>> days_to_hmsm(0.1)
+    (2, 24, 0, 0)
+    
+    """
+    hours = days * 24.
+    hours, hour = math.modf(hours)
+    
+    mins = hours * 60.
+    mins, min = math.modf(mins)
+    
+    secs = mins * 60.
+    secs, sec = math.modf(secs)
+    
+    micro = round(secs * 1.e6)
+    
+    return int(hour), int(min), int(sec), int(micro)
+    
+
+def datetime_to_jd(date):
+    """
+    Convert a `datetime.datetime` object to Julian Day.
+    
+    Parameters
+    ----------
+    date : `datetime.datetime` instance
+    
+    Returns
+    -------
+    jd : float
+        Julian day.
+        
+    Examples
+    --------
+    >>> d = datetime.datetime(1985,2,17,6)  
+    >>> d
+    datetime.datetime(1985, 2, 17, 6, 0)
+    >>> jdutil.datetime_to_jd(d)
+    2446113.75
+    
+    """
+    days = date.day + hmsm_to_days(date.hour,date.minute,date.second,date.microsecond)
+    
+    return date_to_jd(date.year,date.month,days)
+    
+    
+def jd_to_datetime(jd):
+    """
+    Convert a Julian Day to an `jdutil.datetime` object.
+    
+    Parameters
+    ----------
+    jd : float
+        Julian day.
+        
+    Returns
+    -------
+    dt : `jdutil.datetime` object
+        `jdutil.datetime` equivalent of Julian day.
+    
+    Examples
+    --------
+    >>> jd_to_datetime(2446113.75)
+    datetime(1985, 2, 17, 6, 0)
+    
+    """
+    year, month, day = jd_to_date(jd)
+    
+    frac_days,day = math.modf(day)
+    day = int(day)
+    
+    hour,min,sec,micro = days_to_hmsm(frac_days)
+    
+    return datetime(year,month,day,hour,min,sec,micro)
+
+
+def timedelta_to_days(td):
+    """
+    Convert a `datetime.timedelta` object to a total number of days.
+    
+    Parameters
+    ----------
+    td : `datetime.timedelta` instance
+    
+    Returns
+    -------
+    days : float
+        Total number of days in the `datetime.timedelta` object.
+        
+    Examples
+    --------
+    >>> td = datetime.timedelta(4.5)
+    >>> td
+    datetime.timedelta(4, 43200)
+    >>> timedelta_to_days(td)
+    4.5
+    
+    """
+    seconds_in_day = 24. * 3600.
+    
+    days = td.days + (td.seconds + (td.microseconds * 10.e6)) / seconds_in_day
+    
+    return days

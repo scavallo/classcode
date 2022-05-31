@@ -10,15 +10,18 @@ def mstats(m):
    try:
        nans = np.isnan(m);
 
-       nans_vec = np.reshape(nans, np.prod(np.size(nans)), 1);   
+       #nans_vec = np.reshape(nans, np.prod(np.size(nans)), 1);   
+       nans_vec = np.reshape(nans, (np.prod(np.size(nans)),1));
        mm = m[~np.isnan(m)]
    except:
        m = np.array( m, dtype=float)
        nans = np.isnan(m);
-       nans_vec = np.reshape(nans, np.prod(np.size(nans)), 1);   
+       #nans_vec = np.reshape(nans, np.prod(np.size(nans)), 1); 
+       nans_vec = np.reshape(nans, (np.prod(np.size(nans)),1));  
        mm = m[~np.isnan(m)]      
    
-   mp = np.reshape(m, np.prod(np.size(m)), 1);     
+   #mp = np.reshape(m, np.prod(np.size(m)), 1);   
+   mp = np.reshape(m, (np.prod(np.size(m)),1));  
    Nnans = np.sum(nans_vec);
    
    NElements = np.prod(MatrixSize);
