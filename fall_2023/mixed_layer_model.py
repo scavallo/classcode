@@ -21,8 +21,7 @@ import time as Time
 ###########################
 # User settings
 ###########################
-imagedir = '/Users/scavallo/Documents/scripts/python_scripts/images/'
-#imagedir = '/Users/scavallo/Documents/Work/Classes/METR5004/fall_2023/homework/images/'
+imagedir = ''
 label_fontsize = 16
 label_fontsize_subplot = 8
 figname1 = "abl2022_vertical_profile_firstlast_comparison_part1"
