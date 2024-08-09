@@ -23,16 +23,16 @@ from mstats import *
 datadir = '/' # Students: Need to put the path to where your data file is locally on your computer
 imagedir = '/' # Students: Need to put the path to where you want the plots to save locally on your computer
 # Example of mine below:
-#datadir = '/Users/scavallo/Documents/data/'
-#imagedir = '/Users/scavallo/Documents/scripts/python_scripts/images/'
+datadir = '/Users/scavallo/Documents/data/'
+imagedir = '/Users/scavallo/Documents/scripts/python_scripts/images/'
 
-infile = 'slp_6590_annual_1948_2023.dat' # Name of data file
+infile = 'slp_6590_annual_1948_2024.dat' # Name of data file
 
 label_fontsize = 16 # Fontsize for plot labels
 title_fontsize = 18 # Fontsize for plot titles
 latitude = 65. # 
 
-analysis_years = [1979,2023] # [start_year,end_year] of the calculations
+analysis_years = [1979,2024] # [start_year,end_year] of the calculations
 plot_year = [2021] # Year for overlaying the comparisons
 month_index_pick = 5 # Note that Python indices start with 0.  So 0 means January.
 month_label_pick = 'June transport'
@@ -63,7 +63,7 @@ years = np.array(years)
 [ind1a] = np.where(years == analysis_years[0])
 [ind1b] = np.where(years == analysis_years[1])
 [ind1c] = np.where(years == plot_year[0])
-[ind1d] = np.where(years == 2011)
+[ind1d] = np.where(years == 2015)
 
 # Convert the indices to integers so they can be referenced
 ind1a = int(ind1a)
@@ -79,7 +79,7 @@ nyears,nmonths = np.shape(slp_full)
 
 
 slp_19792010 = np.array(slp_full_in[ind1a:ind1d,:])
-slp_20112023 = np.array(slp_full_in[ind1d:-1,:])
+slp_20152024 = np.array(slp_full_in[ind1d:-1,:])
 
 # Calculate the monthly mean and standard deviation and limits for the plots
 slp_monthly_mean = np.nanmean(slp_full,0)
@@ -95,7 +95,7 @@ upperlim_slp2 = np.nanmax(slp_full,0)
 
 # Compute monthly-mean SLP for the subsets of SLP data
 slp_monthly_mean_19792010 = np.nanmean(slp_19792010,0)
-slp_monthly_mean_20112023 = np.nanmean(slp_20112023,0)
+slp_monthly_mean_20152024 = np.nanmean(slp_20152024,0)
 
 ######################
 # mass transport calculations
@@ -187,7 +187,7 @@ p1 = plt.fill_between(tm,lowerlim_slp1,upperlim_slp1,alpha=0.4,facecolor='0.3',e
 p2 = plt.fill_between(tm,lowerlim_slp2,upperlim_slp2,alpha=0.4,facecolor='0.6',edgecolor='0.6',label='Range')
 p3, = ax1.plot(tm,slp_monthly_mean,'b',linewidth=4.0,label='Monthly mean Arctic SLP')
 p4, = ax1.plot(tm,slp_monthly_mean_19792010,'r',linewidth=3.0,label='1979-2010')
-p5, = ax1.plot(tm,slp_monthly_mean_20112023,'r--',linewidth=3.0,label='2011-2023')
+p5, = ax1.plot(tm,slp_monthly_mean_20152024,'r--',linewidth=3.0,label='2015-2024')
 
 ax1.set_xlim([np.min(tm),np.max(tm)])
 ax1.set_ylim([ylims1[0],ylims1[-1]])
