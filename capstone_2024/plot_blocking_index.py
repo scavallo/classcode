@@ -33,7 +33,8 @@ figname = 'myfigure'
 
 delta_phi = 30
 start_time_file = '1900010100'
-plot_time = '1985010100'
+plot_start_time = '2007100100'
+plot_end_time = '2007103118'
 standardized_option = 1 # 0 for not standardized, 1 for standardized
 
 map_projection = 'npstere' # 'npstere' for northern hemisphere polar stereorgraphic, 'ortho' for orthographic projection, 'lcc' for Lambert Conformal projection 
@@ -53,37 +54,50 @@ hinc = dtimes[0].astype('float')
 date_start = um.advance_time(start_time_file,hrs_start)
 print(date_start)  
 
-indnow = 0
+sindnow = 0
 datenow = date_start
-while datenow < plot_time:
-    indnow+=1
+while datenow < plot_start_time:
+    sindnow+=1
     datenow = um.advance_time(datenow,hinc)  
 
-print(indnow,datenow)
+eindnow = 0
+datenow = date_start
+while datenow < plot_end_time:
+    eindnow+=1
+    datenow = um.advance_time(datenow,hinc) 
+
+print(sindnow,eindnow,datenow)
 
 
 #####Load Data##################################################
 data = netCDF4.Dataset(data_file, 'r')
-time = data.variables['time'][indnow]
 lon = data.variables['longitude'][:]
 lat = data.variables['latitude'][:]
-if standardized_option == 0:    
-    db_index = data.variables['DB_index'][indnow,:,:]
-    ri_index = data.variables['RI_index'][indnow,:,:]
-    blocking = data.variables['blocking'][indnow,:,:]
-    time = data.variables['time'][indnow]
-    lon = data.variables['longitude'][:]
-    lat = data.variables['latitude'][:]
-    data.close()
+time = data.variables['time'][sindnow]
+if sindnow == eindnow:
+    if standardized_option == 0:    
+        db_index = data.variables['DB_index'][sindnow,:,:]
+        ri_index = data.variables['RI_index'][sindnow,:,:]
+        blocking = data.variables['blocking'][sindnow,:,:]
+        data.close()
 
-if standardized_option == 1:
-    db_index = data.variables['DB_Std'][indnow,:,:]
-    ri_index = data.variables['RI_Std'][indnow,:,:]
-    blocking = data.variables['B_Std'][indnow,:,:]
+    if standardized_option == 1:
+        db_index = data.variables['DB_Std'][sindnow,:,:]
+        ri_index = data.variables['RI_Std'][sindnow,:,:]
+        blocking = data.variables['B_Std'][sindnow,:,:]
+else:
+    if standardized_option == 0:    
+        db_index = np.nanmean(data.variables['DB_index'][sindnow:eindnow,:,:],0)
+        ri_index = np.nanmean(data.variables['RI_index'][sindnow:eindnow,:,:],0)
+        blocking = np.nanmean(data.variables['blocking'][sindnow:eindnow,:,:],0)
+        data.close()
 
+    if standardized_option == 1:
+        db_index = np.nanmean(data.variables['DB_Std'][sindnow:eindnow,:,:],0)
+        ri_index = np.nanmean(data.variables['RI_Std'][sindnow:eindnow,:,:],0)
+        blocking = np.nanmean(data.variables['B_Std'][sindnow:eindnow,:,:],0)
 
 data.close()
-
 
 X,Y = np.meshgrid(lon, lat)  
 
@@ -102,17 +116,16 @@ if standardized_option == 0:
     cint_plot = 2
     cbarlabel = 'Blocking Index'
 if standardized_option == 1:
-    cbar_min_plot = -3
-    cbar_max_plot = 3
-    cint_plot = 0.2
+    cbar_min_plot = -2
+    cbar_max_plot = 2
+    cint_plot = 0.1
     cbarlabel = 'Standardized Blocking Index'
 
 
 cflevs_plot =  np.arange(cbar_min_plot, cbar_max_plot, cint_plot)
 cflevs_plot_cntrs = cflevs_plot[-10:]
 cflevs_plot_ticks = np.arange(cbar_min_plot,cbar_max_plot,4*cint_plot)
-#cmap_opt = plt.cm.jet
-cmap_opt = plt.cm.RdBu
+cmap_opt = plt.cm.RdBu_r
    
 golden = (np.sqrt(5)+1.)/2.     
 fig = plt.figure(figsize=(12.,12.), dpi=128)   # New figure
