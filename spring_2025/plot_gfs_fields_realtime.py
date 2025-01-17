@@ -19,14 +19,16 @@ import utilities_modules as um
 ####################################################
 # User Options
 ####################################################
-plot_option = 2 # 1 for 500 mb heights, 
+plot_option = 7 # 1 for 500 mb heights, 
                 #2 for 500 and 1000 mb heights, 
                 # 3 for 1000:500 mb thickness; 
                 # 4 for slp and 500 hPa heights, 
-                # 5 for slp and 2-m temperature
+                # 5 for slp and windbarbs
+                # 6 for 2-m temperature and windbarbs
+                # 7 for 850 mb temperature and windbarbs
 overlay_windbarbs = False
 windbarb_pressure_level = 850 # pressure level for wind barbs; only used if overlay_windbarbs = True; If plot_option = 5, this is overwritten with 10-m wind
-barb_interval = 5 # interval for wind barbs; only used if overlay_windbarbs = True
+barb_interval = 10 # interval for wind barbs; only used if overlay_windbarbs = True
 title_fontsize = 14
 label_fontsize = 14
 contour_fontsize = 10
@@ -65,22 +67,27 @@ dataset = xr.open_dataset(url)
 # Step 2: Extract 500 mb Geopotential Heights
 # Select the variable "hgt" (geopotential height) and the 500 mb level
 heights_500mb = dataset['hgtprs'].sel(lev=500, method="nearest").isel(time=time_index)
+heights_850mb = dataset['hgtprs'].sel(lev=850, method="nearest").isel(time=time_index)
 heights_1000mb = dataset['hgtprs'].sel(lev=1000, method="nearest").isel(time=time_index)
-slp = dataset['prmslmsl'].isel(time=time_index)/100.
-if plot_option == 5:
+temps_850mb = dataset['tmpprs'].sel(lev=850, method="nearest").isel(time=time_index)
+t2m_in = dataset['tmp2m'].isel(time=time_index)
+slp_in = dataset['prmslmsl'].isel(time=time_index)/100.
+if ( (plot_option == 5) or (plot_option == 6) ):
     u_wind = dataset['ugrd10m'].isel(time=time_index)  
     v_wind = dataset['vgrd10m'].isel(time=time_index)
 else:
     u_wind = dataset['ugrdprs'].sel(lev=windbarb_pressure_level, method="nearest").isel(time=time_index)
     v_wind = dataset['vgrdprs'].sel(lev=windbarb_pressure_level, method="nearest").isel(time=time_index)
 
-
-
 # Get latitude, longitude, and height data
 lats = heights_500mb['lat']
 lons = heights_500mb['lon']
 heights500 = heights_500mb.values
+heights850 = heights_850mb.values
 heights1000 = heights_1000mb.values
+temps850 = temps_850mb.values
+t2m = t2m_in.values
+slp = slp_in.values 
 
 thickness = heights500-heights1000
 
@@ -90,12 +97,9 @@ analysis_time_formatted = datetime.strptime(analysis_time, "%Y-%m-%dT%H:%M:%S.%f
 valid_time = str(heights_500mb['time'].values)
 valid_time_formatted = datetime.strptime(valid_time, "%Y-%m-%dT%H:%M:%S.%f000").strftime("%H UTC %Y-%m-%d")
 
-
 analysis_dt = datetime.strptime(str(analysis_time), "%Y-%m-%dT%H:%M:%S.%f000")
 forecast_dt = datetime.strptime(str(valid_time), "%Y-%m-%dT%H:%M:%S.%f000")
 forecast_hour = int((forecast_dt - analysis_dt).total_seconds() / 3600)
-
-
 
 # Step 3: Plot 500 mb Geopotential Heights
 golden = (np.sqrt(5)+1.)/2.
@@ -157,8 +161,20 @@ if plot_option == 5:
     contour = ax.contour(lons, lats, slp, levels=cntrs1,
                      colors='black', linestyles='solid', transform=ccrs.PlateCarree())
     ax.clabel(contour, cntrs1, colors='black', inline=False, inline_spacing=0.01,fontsize=contour_fontsize)
-
-
+if plot_option == 6:
+    overlay_windbarbs = True
+    t2m_degC = t2m - 273.15
+    cntrs1 = np.arange(-60,65,5)
+    contour = ax.contour(lons, lats, t2m_degC, levels=cntrs1,
+                     colors='red', linestyles='solid', transform=ccrs.PlateCarree())
+    ax.clabel(contour, cntrs1, colors='black', fmt = '%i', inline=False, inline_spacing=0.01,fontsize=contour_fontsize)
+if plot_option == 7:
+    overlay_windbarbs = True
+    temps850_degC = temps850 - 273.15
+    cntrs1 = np.arange(-80,85,5)
+    contour = ax.contour(lons, lats, temps850_degC, levels=cntrs1,
+                     colors='red', linestyles='solid', transform=ccrs.PlateCarree())
+    ax.clabel(contour, cntrs1, colors='black', fmt = '%i', inline=False, inline_spacing=0.01,fontsize=contour_fontsize)
 
 gl = ax.gridlines(draw_labels=True, linewidth=2, color='gray', alpha=0.3, linestyle='-',xlocs=np.arange(-180,181,45), ylocs=np.arange(0,90,10))
 #ax.set_extent([-180, 180, proj_latlon[0], 90], crs=ccrs.PlateCarree())
@@ -186,6 +202,10 @@ if plot_option == 4:
     ax.set_title(f"Mean sea level pressure (GFS) (black) (4 hPa interval)\n 500 mb Geopotential Heights (blue) (60 m interval)\nValid Time: {valid_time_formatted} (Forecast hour {forecast_hour})\nAnalysis Time: {analysis_time_formatted}", fontsize=14)
 if plot_option == 5:
     ax.set_title(f"Mean sea level pressure (GFS) (black) (4 hPa interval)\n 10-m wind (barbs)\nValid Time: {valid_time_formatted} (Forecast hour {forecast_hour})\nAnalysis Time: {analysis_time_formatted}", fontsize=14)
+if plot_option == 6:
+    ax.set_title(f"2-m temperature (GFS) (red) (5 degC interval)\n 10-m wind (barbs)\nValid Time: {valid_time_formatted} (Forecast hour {forecast_hour})\nAnalysis Time: {analysis_time_formatted}", fontsize=14)
+if plot_option == 7:
+    ax.set_title(f"850 hPa temperature (GFS) (red) (5 degC interval)\n 850 hPa wind (barbs)\nValid Time: {valid_time_formatted} (Forecast hour {forecast_hour})\nAnalysis Time: {analysis_time_formatted}", fontsize=14)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 
