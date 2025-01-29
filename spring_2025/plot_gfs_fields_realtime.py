@@ -35,8 +35,8 @@ contour_fontsize = 10
 #proj_latlon = [60. , 270.]
 proj_latlon = [35. , -95.]
 
-analysis_time = '2025011612'
-forecast_hour = 42
+analysis_time = '2025012812'
+forecast_hour = 15
 hinc = 3 # hour increment in files
 imagedir = '/Users/scavallo/Documents/scripts/python_scripts/images/'
 figname_prefix = 'gfs_analysis_' 
@@ -53,7 +53,8 @@ elif forecast_hour >= 10 and forecast_hour < 100:
 else:
     figname = figname_prefix + analysis_time + '_f' + str(forecast_hour)
 
-#figname = figname_prefix + analysis_time
+if plot_option == 7:
+    windbarb_pressure_level = 850
 
 # Step 1: Download GFS Data
 # Replace this URL with the appropriate GFS data URL
@@ -88,6 +89,10 @@ heights1000 = heights_1000mb.values
 temps850 = temps_850mb.values
 t2m = t2m_in.values
 slp = slp_in.values 
+
+# Convert wind to knots
+u_wind = u_wind.values*1.94384
+v_wind = v_wind.values *1.94384
 
 thickness = heights500-heights1000
 
@@ -186,8 +191,8 @@ if overlay_windbarbs == True:
 # Subsample data for better visualization (e.g., every 5th grid point)
     ax.barbs(
         lons[::barb_interval], lats[::barb_interval],
-        u_wind.values[::barb_interval, ::barb_interval],
-        v_wind.values[::barb_interval, ::barb_interval],
+        u_wind[::barb_interval, ::barb_interval],
+        v_wind[::barb_interval, ::barb_interval],
         length=6, transform=ccrs.PlateCarree()
 )
 
