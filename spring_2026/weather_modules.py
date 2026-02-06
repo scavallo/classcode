@@ -1849,4 +1849,163 @@ def bootstrap_twosamps(data1,data2,boot_num,alpha):
         ci_limits_out = [ci_upper,ci_lower]  
     return boot_means,ci_limits_out
 
+def compute_deformation(u, v, lat, lon):
+    """
+    Compute deformation components and vorticity from 2D winds.
+
+    Parameters
+    ----------
+    u, v : xarray.DataArray or numpy.ndarray
+        Eastward (u) and northward (v) wind components.
+        Expected shape: (lat, lon) or DataArray with dims ('lat','lon').
+    lat, lon : 1D arrays (degrees)
+        Latitude and longitude coordinates (degrees).
+        lat should be increasing or decreasing consistently.
+
+    Returns
+    -------
+    dict of xarray.DataArray or numpy.ndarray:
+        'du_dx', 'du_dy', 'dv_dx', 'dv_dy', 'A' (stretching),
+        'B' (shearing), 'D' (total deformation), 'zeta' (relative vorticity).
+        Units: 1/s (assuming u,v in m/s and lat/lon in degrees).
+    """
+
+    import numpy as np
+    import xarray as xr
+    import matplotlib.pyplot as plt
+
+    R_earth = 6371000.0
+
+    # Convert inputs to xarray DataArray for convenient coords if not already
+    is_xr = isinstance(u, xr.DataArray) and isinstance(v, xr.DataArray)
+    if not is_xr:
+        u = xr.DataArray(u, dims=("lat", "lon"))
+        v = xr.DataArray(v, dims=("lat", "lon"))
+
+    # Ensure lat/lon arrays are xarray Coordinates
+    lat = np.asarray(lat)
+    lon = np.asarray(lon)
+    nlat = lat.size
+    nlon = lon.size
+
+    # convert degrees -> radians for spacing computation
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    # meridional spacing (dy) in meters: depends on lat spacing
+    # dy is length nlat-1 between grid cell centers; we'll build an array of length nlat
+    # using differences between adjacent latitudes
+    dlat = np.gradient(lat_rad)   # radians, length nlat
+    dy = R_earth * dlat          # meters, length nlat
+
+    # zonal spacing (dx) in meters depends on latitude (circumference cos(lat))
+    dlon = np.gradient(lon_rad)  # radians, length nlon
+    # dx per lat: for each latitude index i, dx_i is R * cos(lat_i) * dlon_j
+    # We'll compute dx as 2D via outer product
+    coslat = np.cos(lat_rad)     # length nlat
+    # dx as 1D as function of lon (if lon spacing uniform) or 2D:
+    # Build 1D dlon (varies with lon) and then make dx_2d = R * coslat[:,None] * dlon[None,:]
+    dx_1d = R_earth * dlon       # length nlon in meters (at equator)
+    dx_2d = np.outer(coslat * R_earth, dlon)  # shape (nlat, nlon), meters
+
+    # For derivatives we want arrays of spacing consistent with np.gradient:
+    # We'll compute derivatives with central diffs explicitly to allow different spacing per cell.
+
+    # Grab numpy arrays for arithmetic
+    u_arr = u.values
+    v_arr = v.values
+
+    # define helper to compute d/dy (axis=0) with variable dy (length nlat)
+    def ddx_central(f, axis=1):
+        """d/dx where x is longitude axis (axis=1). Returns same shape as f."""
+        df = np.zeros_like(f)
+        # interior points: central difference with local dx (dx varies with lon and lat)
+        # dx_2d has shape (nlat, nlon)
+        # forward/backward on boundaries
+        # central interior
+        df[:, 1:-1] = (f[:, 2:] - f[:, :-2]) / (dx_2d[:, 2:] + dx_2d[:, :-2]) * 2.0
+        # first column (forward)
+        df[:, 0] = (f[:, 1] - f[:, 0]) / dx_2d[:, 0]
+        # last column (backward)
+        df[:, -1] = (f[:, -1] - f[:, -2]) / dx_2d[:, -1]
+        return df
+
+    def ddy_central(f, axis=0):
+        """d/dy where y is latitude axis (axis=0). Returns same shape as f."""
+        df = np.zeros_like(f)
+        # interior central
+        # dy is 1D length nlat; expand to (nlat, nlon) by broadcasting
+        dy_2d = dy[:, None]  # shape (nlat,1)
+        df[1:-1, :] = (f[2:, :] - f[:-2, :]) / (dy_2d[2:, :] + dy_2d[:-2, :]) * 2.0
+        # first row (forward)
+        df[0, :] = (f[1, :] - f[0, :]) / dy_2d[0, :]
+        # last row (backward)
+        df[-1, :] = (f[-1, :] - f[-2, :]) / dy_2d[-1, :]
+        return df
+
+    du_dx = ddx_central(u_arr, axis=1)
+    du_dy = ddy_central(u_arr, axis=0)
+    dv_dx = ddx_central(v_arr, axis=1)
+    dv_dy = ddy_central(v_arr, axis=0)
+
+    # deformation components
+    A = du_dx - dv_dy                 # stretching
+    B = du_dy + dv_dx                 # shearing
+    D = np.sqrt(A**2 + B**2)          # total deformation
+
+    # relative vorticity (dv/dx - du/dy)
+    zeta = dv_dx - du_dy
+
+    # wrap results as xarray DataArrays with coords if input was xarray
+    coords = {"lat": lat, "lon": lon}
+    result = {
+        "du_dx": xr.DataArray(du_dx, dims=("lat", "lon"), coords=coords),
+        "du_dy": xr.DataArray(du_dy, dims=("lat", "lon"), coords=coords),
+        "dv_dx": xr.DataArray(dv_dx, dims=("lat", "lon"), coords=coords),
+        "dv_dy": xr.DataArray(dv_dy, dims=("lat", "lon"), coords=coords),
+        "A": xr.DataArray(A, dims=("lat", "lon"), coords=coords),
+        "B": xr.DataArray(B, dims=("lat", "lon"), coords=coords),
+        "D": xr.DataArray(D, dims=("lat", "lon"), coords=coords),
+        "zeta": xr.DataArray(zeta, dims=("lat", "lon"), coords=coords),
+    }
+
+    return result
+
+
+# -------------------------
+# Example usage with xarray:
+# -------------------------
+if __name__ == "__main__":
+    # Example: load a NetCDF (u,v) from file (replace with your filename/var names)
+    # ds = xr.open_dataset("analysis.nc")
+    # u = ds['u10']  # or ds['ua'] etc.
+    # v = ds['v10']
+    # lat = ds['lat'].values
+    # lon = ds['lon'].values
+
+    # For demonstration, create a synthetic wind field:
+    lat = np.linspace(-60, 60, 121)
+    lon = np.linspace(0, 359, 360)
+    Lon, Lat = np.meshgrid(lon, lat)
+    # simple rotational flow example (solid-body rotation around pole) in m/s
+    omega = 1e-5  # s^-1
+    # convert lat/lon to meters in local approx (simple demo)
+    x = R_earth * np.deg2rad(Lon) * np.cos(np.deg2rad(Lat))
+    y = R_earth * np.deg2rad(Lat)
+    u_demo = -omega * y  # eastward
+    v_demo =  omega * x  # northward
+
+    # compute
+    results = compute_deformation(u_demo, v_demo, lat, lon)
+
+    # quick plot of total deformation
+    plt.figure(figsize=(10,4))
+    ax = plt.gca()
+    im = results['D'].plot(ax=ax, cmap='viridis')  # xarray plotting; won't set colors explicitly per tool rules
+    ax.set_title("Total deformation D (s$^{-1}$)")
+    plt.show()
+
+    # print stats
+    print("D min/max:", float(results['D'].min()), float(results['D'].max()))
+    print("zeta min/max:", float(results['zeta'].min()), float(results['zeta'].max()))
     
