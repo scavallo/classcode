@@ -18,8 +18,6 @@ import numpy as np
 #from datetime import datetime
 from scipy import ndimage
 
-#import metpy.calc as mpcalc
-#from metpy.units import units
 
 import weather_modules as wm
 import utilities_modules as um
@@ -41,8 +39,8 @@ date = "20260206"  # YYYYMMDD format (update as needed)
 
 # Custom options
 overlay_windbarbs = False
-plot_region = 'CONUS' # CONUS or NAMERICA
-plot_pressure_levels = [850,500,900] #[main_level, upper_level, lower_level] 
+plot_region = 'NAMERICA' # CONUS or NAMERICA
+plot_pressure_levels = [700,500,900] #[main_level, upper_level, lower_level] 
 windbarb_pressure_level = 700 # If overlay_windbarbs = True, then this is the pressure level for wind barbs that are plotted
 barb_interval = 10 # interval for wind barbs; only used if overlay_windbarbs = True
 num_smoothing_iterations = 5 # Number of smoothings passes to make field more synoptic-scale
@@ -62,7 +60,7 @@ proj_latlon = [35. , -95.] # Do not change
 analysis_time = date+cycle
 hinc = 3 # hour increment in files
 
-plot_option = 13 # 0 to print file content to screen
+plot_option = 14 # 0 to print file content to screen
                 # 1 for 500 mb heights, 
                 # 2 for 500 and 1000 mb heights, 
                 # 3 for 1000:500 mb thickness; 
@@ -76,6 +74,7 @@ plot_option = 13 # 0 to print file content to screen
                 # 11 for plot_pressure_levels[0] temperature fill and wind barbs
                 # 12 for 700 mb temperature and geopotential height contours
                 # 13 for Deformation
+                # 14 for Frontogenesis (needs Metpy to be installed!)
 
 ####################################################
 # End of User options
@@ -135,6 +134,43 @@ if plot_option == 0:
 
     exit()
 
+if plot_option == 14:
+    import metpy.calc as mpcalc
+    from metpy.units import units
+
+    # --- Load and parse CF metadata (important for coords/units) ---
+    dataset = xr.open_dataset(output_path,engine="cfgrib",filter_by_keys={'typeOfLevel': 'isobaricInhPa'}).metpy.parse_cf()
+    #print("Available variables in the dataset:")
+    #for var in dataset.variables:
+    #    print(f"- {var}: {dataset[var].attrs.get('long_name', 'No description')}")
+   
+    # --- Example: choose a pressure level and time (adapt variable names to your dataset) ---
+    level = plot_pressure_levels[0] * units.hPa
+
+    T = dataset["t"].metpy.sel(vertical=level).squeeze()  # K
+    u = dataset["u"].metpy.sel(vertical=level).squeeze()  # m/s
+    v = dataset["v"].metpy.sel(vertical=level).squeeze()  # m/s
+
+    # Potential temperature for frontogenesis calculation
+    theta = mpcalc.potential_temperature(level, T)
+    mstats(theta)
+
+    # If your data are lat/lon, compute grid deltas (meters) from 1D lon/lat arrays:
+    lons = T.metpy.x  # often "lon"
+    lats = T.metpy.y  # often "lat"
+    dx, dy = mpcalc.lat_lon_grid_deltas(lons, lats)
+
+    # MetPy expects dx,dy compatible with the data grid; broadcast if needed
+    # (Common case: theta/u/v are (..., y, x))
+    # fronto units: K / (m * s)
+    fronto = mpcalc.frontogenesis(theta, u, v, dx=dx, dy=dy, x_dim=-1, y_dim=-2)
+    # Convert to standard units for plotting
+    #fronto_unit = fronto.to('K / 100 km / 3 h') # .to doesn't work in my version for some reason
+    fronto_unit = fronto*1000*3600*300
+    fronto_unit = np.array(fronto_unit)
+    for ii in range(0,num_smoothing_iterations): 
+        fronto_unit = ndimage.gaussian_filter(fronto_unit,0.75)
+    mstats(fronto_unit)
 
 
 if plot_option == 1:
@@ -183,6 +219,8 @@ elif plot_option == 12:
 elif plot_option == 13:
     plot_pressure_levels = [700,700,500]
     windbarb_pressure_level = 700
+elif plot_option == 14:
+    overlay_windbarbs = True
 else:
     print("Invalid plot_option")
     exit()
@@ -219,7 +257,7 @@ mstats(absv_mainlevel)
 
 X,Y = np.meshgrid(lons, lats) 
 
-if plot_option == 13:
+if ( (plot_option == 13) or (plot_option == 14) ):
     results = wm.compute_deformation(u_wind, v_wind, lats, lons)
     stretching_deformation = np.array(results['A'])*10**5
     shearing_deformation = np.array(results['B'])*10**5
@@ -384,7 +422,6 @@ if plot_option == 12:
     contour = ax.contour(lons, lats, temps700_degC, levels=cntrs2,
                      colors='red', linestyles='dashed',transform=ccrs.PlateCarree())
     ax.clabel(contour, colors='black',inline=False, inline_spacing = 0.001, fontsize=contour_fontsize)
-    
 if plot_option == 13:
     overlay_windbarbs = True   
     um.filter_numeric_nans(total_deformation,100,100,'high')
@@ -401,6 +438,27 @@ if plot_option == 13:
     ax.clabel(contour, colors='black',inline=False, inline_spacing = 0.001, fontsize=contour_fontsize)
 
     contour = ax.contour(lons, lats, shearing_deformation, levels=cntrs1,
+                     colors='red', linestyles='solid',transform=ccrs.PlateCarree())
+    ax.clabel(contour, colors='black',inline=False, inline_spacing = 0.001, fontsize=contour_fontsize)
+if plot_option == 14:
+    overlay_windbarbs = True   
+    cmax = 12
+    um.filter_numeric_nans(fronto_unit,cmax,cmax,'high')
+
+
+    cntrs1 = np.arange(0.5,cmax+0.1,0.25)
+    cntrs2 = np.arange(10,71,5)
+
+    cf = ax.contourf(lons, lats, fronto_unit, levels=cntrs1, cmap="hot_r", transform=ccrs.PlateCarree())
+    # Add colorbar
+    cbar = plt.colorbar(cf, orientation="horizontal", pad=0.05)
+    cbar.set_label("K / (100 km * 3 h)")
+   
+    contour = ax.contour(lons, lats, stretching_deformation, levels=cntrs2,
+                     colors='blue', linestyles='dashed',transform=ccrs.PlateCarree())
+    ax.clabel(contour, colors='black',inline=False, inline_spacing = 0.001, fontsize=contour_fontsize)
+
+    contour = ax.contour(lons, lats, shearing_deformation, levels=cntrs2,
                      colors='red', linestyles='solid',transform=ccrs.PlateCarree())
     ax.clabel(contour, colors='black',inline=False, inline_spacing = 0.001, fontsize=contour_fontsize)
 
@@ -448,6 +506,8 @@ if plot_option == 12:
     ax.set_title(f"700-hPa temperature (GFS) (2 degC interval), Heights (30 m interval), and Wind (knots)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
 if plot_option == 13:
     ax.set_title(f"700-hPa Total Deformation (color fill), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
+if plot_option == 14:
+    ax.set_title(f"700-hPa Frontogenesis (color fill) (K / (100 km * 3 h)), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 
