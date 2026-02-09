@@ -60,7 +60,7 @@ proj_latlon = [35. , -95.] # Do not change
 analysis_time = date+cycle
 hinc = 3 # hour increment in files
 
-plot_option = 14 # 0 to print file content to screen
+plot_option = 2 # 0 to print file content to screen
                 # 1 for 500 mb heights, 
                 # 2 for 500 and 1000 mb heights, 
                 # 3 for 1000:500 mb thickness; 
