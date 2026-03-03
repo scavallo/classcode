@@ -6,16 +6,15 @@ c.retrieve(
     'reanalysis-era5-single-levels',
     {
         'product_type': 'reanalysis',
+        'format': 'netcdf',
         'variable': [
             '10m_u_component_of_wind', '10m_v_component_of_wind', '2m_temperature',
-            'mean_sea_level_pressure', 'surface_net_solar_radiation', 'surface_net_solar_radiation_clear_sky',
-            'surface_net_thermal_radiation', 'surface_net_thermal_radiation_clear_sky', 'surface_solar_radiation_downward_clear_sky',
-            'surface_solar_radiation_downwards', 'surface_thermal_radiation_downward_clear_sky', 'surface_thermal_radiation_downwards',
-            'total_cloud_cover', 'total_column_water_vapour', 'vertical_integral_of_northward_water_vapour_flux',
+            'mean_sea_level_pressure', 'total_cloud_cover', 'total_column_water_vapour',
+            'vertical_integral_of_northward_water_vapour_flux',
         ],
         'year': '2013',
         'month': [
-        '12'
+           '12', 
         ],
         'day': [
             '01', '02', '03',
@@ -34,6 +33,5 @@ c.retrieve(
             '00:00', '06:00', '12:00',
             '18:00',
         ],
-        'format': 'netcdf',
     },
-    'era5_sfclevel_2017021500_2017031418.nc')
+    'era5_sfc_2013120100_2013123118.nc')

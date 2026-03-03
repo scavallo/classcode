@@ -12,12 +12,15 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap, shiftgrid
 from scipy import ndimage
 from matplotlib.colors import LogNorm
+import gc
 
 # Add a couple of user defined functions
 import weather_modules as wm
 import utilities_modules as um
 from mstats import *
 
+import faulthandler
+faulthandler.enable()
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -32,29 +35,34 @@ print(sys.version)
 #dates2plot = ['2021121500','2022013118']
 #dates2plot = ['2020010100','2020012618']
 #dates2plot = ['2011081300','2011091618']
-dates2plot = ['2010041500','2010050918']
-date_firstrecord = '2010040100'
-date_firstrecord_sfcfile = '2010040100'
+#dates2plot = ['2012071500','2012081518']
+#dates2plot = ['2020081500','2020092018']
+dates2plot = ['2017021500','2017022818']
+date_firstrecord = '2017021500'
+date_firstrecord_sfcfile = '2017020100'
 hinc = 6
 
 
-map_projection = 'spstere' # 'npstere' for northern hemisphere polar stereorgraphic, 'ortho' for orthographic projection, 'lcc' for Lambert Conformal projection 
+map_projection = 'npstere' # 'npstere' for northern hemisphere polar stereorgraphic, 'ortho' for orthographic projection, 'lcc' for Lambert Conformal projection 
 #proj_latlon = [65. , 0.]
 #proj_latlon = [55. , 270.]
 #proj_latlon = [70. , 270.]
 #proj_latlon = [20. , 270.]
-proj_latlon = [-30. , -180.]
+proj_latlon = [65. , 270.]
+#proj_latlon = [-30. , -180.]
 
 #proj_latlon = [90. , 80.]
 #proj_latlon = [90. , 310.]
 plot_field = 'trth_ivt' # 'trth', 'trpr', 'trtemp','pw', 'trwind', 'sfcwind', 'totqv', 'quivwind','ghgt500', 'trth_slp_ice', 'trth_totqv', 'cloud_sw', 'cloud_lw','cloud_net','trth_ivt', 'blank' for blank map
 plot_slp = 'True' # If true, plots slp contours
+plot_point = 'False'
+#point_latlon = [86.,122.]
+point_latlon = [89.,88.]
 convert_to_celsius = 'False'
 plot_trth_contour = 'False'
 plot_trth_contours = 'True'
 plot_cloud_cover = 'False'
 smooth_plotvar = 'False'
-plot_radius = 'False' # If true, plots radial circle
 plot_wind = 'False'
 plot_wind_level = -1
 plot_spc_reports = 'false'
@@ -67,11 +75,16 @@ cenLon = 286. # for plot_cross_section_line only
 dLat = 0.     # for plot_cross_section_line only
 dLon = 50.    # for plot_cross_section_line only
 
+plot_radius = 'False' # If true, plots radial circle
+range_ring_option = 2 # 1 for loiter time, 2 for a set distance.  If 2, set distance below
+range_nm_plot = [1250.,1650.]
+
 #latlon_radius = [35.77, -65.0] # Atlantic Ocean point
 #latlon_radius = [35.77, -78.64] # Raleigh, NC
 #latlon_radius = [41.26, -95.94] # Omaha, NE
 #latlon_radius = [47.68, -116.78] # Coeur d'Alene
-latlon_radius = [78.22, 15.63] 
+#latlon_radius = [78.22, 15.63] 
+latlon_radius = [47.5556,-52.7453]
 zoom = 'False'
 coef = 0.7
 
@@ -99,40 +112,6 @@ mission3_lons = [15.78,10.,15.78]
 mission2_lats = [78.4, 89., 74., 74., 80., 80., 86., 82.,86.,78.4]
 mission2_lons = [15.78,300.,195.,240.,255.,195.,210.,298.,24.,15.78]
 
-if 1 == 0:
-    lmower_numlegs = 6
-    lmower_latlon_start = [74.,240.]
-    lmower_nlats = 2.0
-    lmower_londist_km = 1500.
-
-    lmower_latdist_km = lmower_nlats*111.
-    lmower_latinc = lmower_latdist_km / 111.00
-    mission2_lats = np.zeros(lmower_numlegs*2+2)
-    mission2_lons = np.zeros(lmower_numlegs*2+2)
-    mission2_lats[0] = latlon_radius[0]
-    mission2_lons[0] = latlon_radius[1]
-    mission2_lats[1] = lmower_latlon_start[0]
-    mission2_lons[1] = lmower_latlon_start[1]
-    mission2_lats[-1] = latlon_radius[0]
-    mission2_lons[-1] = latlon_radius[1]
-    count = 0
-    signnow = -1.0
-    for ii in range(2,len(mission2_lats)-1):
-        if np.mod(count,2) != 0:
-            mission2_lats[ii] = mission2_lats[ii-1]+lmower_latinc
-        else:
-            mission2_lats[ii] = mission2_lats[ii-1]    
-        if np.mod(count,2) == 0:
-            lmower_loninc = signnow*lmower_londist_km/(111.0*np.cos(mission2_lats[ii]*np.pi/180.))    
-            signnow = -1.0*signnow
-            mission2_lons[ii] = mission2_lons[ii-1]+lmower_loninc               
-            if ( (mission2_lons[ii] < russia_fir_lons[2]) and (mission2_lons[ii] > russia_fir_lons[1]) ) :
-               closest_lon = min(russia_fir_lons,key=lambda x:abs(x-mission2_lons[ii]))
-               mission2_lons[ii]  = closest_lon + 3.0 #russia_fir_lons[2]
-
-        else:
-            mission2_lons[ii] = mission2_lons[ii-1]
-        count += 1
 
 datenow = date_firstrecord
 count = 0
@@ -165,15 +144,22 @@ label_fontsize = 16
 # Now provide the path to the directory containing the .nc file. Please note,
 # do NOT include the .nc file in the path.
 #fdir = '/arctic3/datasets/ERA5/'
-fdir = '/data1/scavallo/data/cases/ant_aprmay2010/'
+#fdir = '/data1/scavallo/data/cases/ant_aprmay2010/'
 #fdir = '/data1/scavallo/data/cases/ant_augsept2011/'
 #fdir = '/data1/scavallo/data/cases/ant_janfeb2020/'
 #fdir = '/data1/scavallo/data/cases/ant_marapr2006/'
 #fdir = '/data1/scavallo/data/cases/arc_marapr1983/'
+#fdir = '/data1/scavallo/data/cases/aug2012/ERA5/'
+#fdir = '/data1/scavallo/data/cases/arc_octnov2019/'
+#fdir = '/data1/scavallo/data/cases/arc_augsept2020/'
+#fdir = '/data1/scavallo/data/cases/icestorm_dec2013/'
+fdir = '/data1/scavallo/data/cases/feb2017/'
 force_filename = True
 #fname = 'era5_pt_1979-2018.nc'
-fname = 'era5_2pvu_2010040100_2010053118.nc'
-fname_sfc = 'era5_sfclevel_2010040100_2010053118.nc'
+#fname = 'era5_2pvu_2012070100_2012083118.nc'
+#fname_sfc = 'era5_sfclevel_2012070100_2012083118.nc'
+fname = 'era5_2pvu_2017021500_2017031418.nc'
+fname_sfc = 'era5_sfclevel_2017020100_2017022818.nc'
 imagedir = '/home/scavallo/scripts/python_scripts/images/'
 fpath_igra = '/home/scavallo/scripts/template/igra_stationlist.txt'
 ###################################
@@ -252,6 +238,7 @@ while record_start <= record_end:
    print("rcount is %i while record_numnow is %i" %(rcount, record_numnow))
 
    if nplots > 1:
+      gc.collect()
       count = 1
       
       if rcount == 0:
@@ -475,12 +462,15 @@ while record_start <= record_end:
               xlats = xlats_sfc
       
           if ( (plot_field == 'ivt') or (plot_field == 'trth_ivt') ):
-              ivt = (f2.variables['p72.162'][record_numnow,::-1,:].squeeze())
+              try:
+                  ivt = (f2.variables['p72.162'][record_numnow,::-1,:].squeeze())
+              except:
+                  ivt = (f2.variables['viwvn'][record_numnow,::-1,:].squeeze())
               xlons = xlons_sfc
               xlats = xlats_sfc	  
 	  
       trth = f.variables['pt'][record_numnow,::-1,:].squeeze()
-      #trpr = (f.variables['pres'][record_numnow,::-1,:].squeeze()) /100.
+      trpr = (f.variables['pres'][record_numnow,::-1,:].squeeze()) /100.
       
       if plot_field == 'trwind':
           uin = f.variables['u'][record_numnow,::-1,:].squeeze()
@@ -506,7 +496,8 @@ while record_start <= record_end:
       lats = f.variables['lat_3'][::-1] # Read in reverse direction
       levs = f.variables['lv_ISBL3'][:]
 
-   f.close
+   f.close()
+   f2.close()
    
    if data_gridnum > -1:
       if ( (data_gridnum != 11) & (data_gridnum != 12) & (data_gridnum != 20) ):
@@ -572,7 +563,7 @@ while record_start <= record_end:
            figname_desc = 'trth_totqv'
        if (plot_field == 'trth_ivt'):
            figname_desc = 'trth_ivt'
-           ivtplot = -1*ivt
+           ivtplot = 1*ivt # Negative 1 if southern hemisphere
            cntr_max_ivt = 1800
            cntr_min_ivt = 200
            cint_ivt = 300
@@ -965,7 +956,7 @@ while record_start <= record_end:
    cbar_min_slp = base_cntr_slp-nslpconts*cint_slp
    cbar_max_slp = base_cntr_slp+nslpconts*cint_slp
    #cbar_max_slp = cbar_max_slp + (cint_slp/2)   
-   cbar_max_slp = 992 #1008
+   cbar_max_slp = 1000 #1008
    cflevs_slp =  np.arange(cbar_min_slp, cbar_max_slp+cint_slp, cint_slp)
    cflevs_slp_ticks = np.arange(cbar_min_slp,cbar_max_slp+cint_slp,4*cint_slp)
 
@@ -974,13 +965,11 @@ while record_start <= record_end:
 
    
    
-   # Calculate distance from Brunswick, Maine
+   # Calculate distance from a pair of lat/lon coords
    lat1 = latlon_radius[0]
    lon1 = latlon_radius[1]
    ed = um.earth_distm(lat1,lon1,Y,X)
-      
-   
-
+ 
  
    #titletext1 = 'Tropopause potential temperature valid %s at %s UTC' % (
    #        dt.strftime('%d %b %Y'), dt.strftime('%H00'))  
@@ -1227,24 +1216,28 @@ while record_start <= record_end:
        ax1.plot(x[xx,yy], y[xx,yy], color='0.75', lw=8)
      
    if plot_radius == 'True':
-      # Calculate distance from Brunswick, Maine
-      lat1 = latlon_radius[0]
-      lon1 = latlon_radius[1]
-      ed = um.earth_distm(lat1,lon1,Y,X)
-      #loiter
-      rcruise = 4900 # nm
-      vcruise = 510  # knots
-      loiter_times = np.array([6.0,4.0,2.0])
-      cflevs_loiter = (['6-h','4-h','2-h'])
-      dbase = (rcruise/2) - ((loiter_times*vcruise)/(2*1.16))
+      if range_ring_option == 1:
+          lat1 = latlon_radius[0]
+          lon1 = latlon_radius[1]
+          ed = um.earth_distm(lat1,lon1,Y,X)
+          #loiter
+          rcruise = 4900 # nm
+          vcruise = 510  # knots
+          loiter_times = np.array([6.0,4.0,2.0])
+          cflevs_loiter = (['6-h','4-h','2-h'])
+          dbase = (rcruise/2) - ((loiter_times*vcruise)/(2*1.16))
 
-      #range_km = (dbase*1.15)/0.621371
-      range_km = dbase*1.852
-      print(range_km)
+          #range_km = (dbase*1.15)/0.621371
+          range_km = dbase*1.852
+          print(range_km)
       
-      
-      strs = [ '6-h', '4-h', '2-h']
-
+          strs = [ '6-h', '4-h', '2-h']
+      elif range_ring_option == 2:
+          range_nm = np.array(range_nm_plot)
+          range_km = range_nm*1.852
+          print(range_nm,range_km)
+	  
+          strs = ['1250 nm','1650 nm']       
       
       CS4 = m.contour(x,y,ed,range_km,colors='m',linewidths=3.0)
       fmt = {}
@@ -1265,9 +1258,14 @@ while record_start <= record_end:
            CSx = m.scatter(xpt,ypt,c='m',s=10,zorder=10,marker='+')   
        else:
            CSx = m.scatter(xpt,ypt,c='m',s=20,zorder=10,marker='+')   
+   if plot_point == 'True':
+       print(point_latlon[1],point_latlon[0])
+       xpt,ypt = m(point_latlon[1],point_latlon[0])
+       CSx = m.scatter(xpt,ypt,c='m',s=310,zorder=10,marker=(5,1))
+
    #ax1.set_title(titletext1)
-   #plt.title('%s' % (titletext1), fontsize=label_fontsize,bbox=dict(facecolor='white', alpha=0.65),x=0.5,y=.95,weight = 'demibold',style='oblique', \
-   #        stretch='normal', family='sans-serif')
+   plt.title('%s' % (titletext1), fontsize=label_fontsize,bbox=dict(facecolor='white', alpha=0.65),x=0.5,y=.95,weight = 'demibold',style='oblique', \
+           stretch='normal', family='sans-serif')
 
    if loop_option == 'false':      
       #plt.show()
@@ -1311,7 +1309,21 @@ while record_start <= record_end:
    rcount +=1
    record_numnow +=1
 
-   datenow = um.advance_time(datenow,hinc)      
+   datenow = um.advance_time(datenow,hinc)   
+
+
+   if( (plot_slp == 'True') or (plot_field == 'trth_totqv') or (plot_field == 'cloud_sw') or (plot_field == 'cloud_lw') or (plot_field == 'cloud_net') or (plot_field == 'ivt') or (plot_field == 'trth_ivt') ):
+       del sfclats,sfclons,xlons_sfc,xlats_sfc,loninnow,slp,trth,trpr
+
+       if ( (plot_field == 'cloud_sw') or (plot_field == 'cloud_lw') or (plot_field == 'cloud_net') ):
+           del cloud_sw, cloud_sw_clearsky, cloud_lw, cloud_lw_clearsky, crf_sw, crf_lw, crf_net, xlons, xlats
+       if ( (plot_field == 'ivt') or (plot_field == 'trth_ivt') ):
+           del ivt, xlons, xlats
+       if plot_field == 'trwind':
+           del uin, vin
+
+   gc.collect
+    
 
 if loop_option == 'false':
     plt.show()
