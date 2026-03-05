@@ -32,16 +32,16 @@ from mstats import *
 ####################################################
 # Define GFS file parameters
 base_url = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
-cycle = "12"  # GFS cycle time (00, 06, 12, 18 UTC)
-forecast_hour = "000"  # Forecast hour (000, 003, 006, etc.)
+cycle = "06"  # GFS cycle time (00, 06, 12, 18 UTC)
+forecast_hour = "042"  # Forecast hour (000, 003, 006, etc.)
 resolution = "0p25"  # Choose from 0p25, 0p50, 1p00 (higher resolution = larger file)
-date = "20260206"  # YYYYMMDD format (update as needed)
+date = "20260305"  # YYYYMMDD format (update as needed)
 
 # Custom options
 overlay_windbarbs = False
-plot_region = 'NAMERICA' # CONUS or NAMERICA
-plot_pressure_levels = [700,500,900] #[main_level, upper_level, lower_level] 
-windbarb_pressure_level = 700 # If overlay_windbarbs = True, then this is the pressure level for wind barbs that are plotted
+plot_region = 'CONUS' # CONUS or NAMERICA
+plot_pressure_levels = [850,500,900] #[main_level, upper_level, lower_level] 
+windbarb_pressure_level = 850 # If overlay_windbarbs = True, then this is the pressure level for wind barbs that are plotted
 barb_interval = 10 # interval for wind barbs; only used if overlay_windbarbs = True
 num_smoothing_iterations = 5 # Number of smoothings passes to make field more synoptic-scale
 title_fontsize = 14
@@ -53,14 +53,16 @@ save_dir = '/Users/scavallo/Documents/Work/Classes/Synoptic-Dynamics/spring_2026
 #figname_prefix = f"gfs_700t_700ghgt_" 
 #figname_prefix = f"gfs_1000ghgt_500ghgt_"
 #figname_prefix = f"gfs_850temperature_850wind_"
-figname_prefix = f"gfs_deformation_700mb_"
+figname_prefix = f"gfs_deformation_850mb_"
+figname_prefix = f"gfs_frontogenesis_850mb_"
+
 
 # Generally do not change the settings below
 proj_latlon = [35. , -95.] # Do not change 
 analysis_time = date+cycle
 hinc = 3 # hour increment in files
 
-plot_option = 2 # 0 to print file content to screen
+plot_option = 14 # 0 to print file content to screen
                 # 1 for 500 mb heights, 
                 # 2 for 500 and 1000 mb heights, 
                 # 3 for 1000:500 mb thickness; 
@@ -217,8 +219,8 @@ elif plot_option == 12:
     plot_pressure_levels = [700,700,500]
     windbarb_pressure_level = 700
 elif plot_option == 13:
-    plot_pressure_levels = [700,700,500]
-    windbarb_pressure_level = 700
+    plot_pressure_levels = plot_pressure_levels #[700,700,500]
+    #windbarb_pressure_level = 700
 elif plot_option == 14:
     overlay_windbarbs = True
 else:
@@ -505,9 +507,9 @@ if plot_option == 11:
 if plot_option == 12:
     ax.set_title(f"700-hPa temperature (GFS) (2 degC interval), Heights (30 m interval), and Wind (knots)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
 if plot_option == 13:
-    ax.set_title(f"700-hPa Total Deformation (color fill), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
+    ax.set_title(f"{str(plot_pressure_levels[0])}-hPa Total Deformation (color fill), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
 if plot_option == 14:
-    ax.set_title(f"700-hPa Frontogenesis (color fill) (K / (100 km * 3 h)), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
+    ax.set_title(f"{str(plot_pressure_levels[0])}-hPa Frontogenesis (color fill) (K / (100 km * 3 h)), Stretching Deformation (Dashed blue), and Shearing Deformation (Solid red) (s-1)\n {analysis_time_title}\n  {valid_time_title} (Forecast hour {forecast_hour})", fontsize=14)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 
