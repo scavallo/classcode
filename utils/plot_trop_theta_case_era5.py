@@ -153,13 +153,14 @@ label_fontsize = 16
 #fdir = '/data1/scavallo/data/cases/arc_octnov2019/'
 #fdir = '/data1/scavallo/data/cases/arc_augsept2020/'
 #fdir = '/data1/scavallo/data/cases/icestorm_dec2013/'
-fdir = '/data1/scavallo/data/cases/feb2017/'
+#fdir = '/data1/scavallo/data/cases/feb2017/'
+fdir = '/Users/scavallo/Documents/data/cases/jan2026/'
 force_filename = True
 #fname = 'era5_pt_1979-2018.nc'
 #fname = 'era5_2pvu_2012070100_2012083118.nc'
 #fname_sfc = 'era5_sfclevel_2012070100_2012083118.nc'
-fname = 'era5_2pvu_2017021500_2017031418.nc'
-fname_sfc = 'era5_sfclevel_2017020100_2017022818.nc'
+fname = 'era5_2pvu_2026010100_2026013118.nc'
+fname_sfc = 'era5_sfclevel_2026010100_2026013118.nc'
 imagedir = '/home/scavallo/scripts/python_scripts/images/'
 fpath_igra = '/home/scavallo/scripts/template/igra_stationlist.txt'
 ###################################
