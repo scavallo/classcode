@@ -37,9 +37,9 @@ print(sys.version)
 #dates2plot = ['2011081300','2011091618']
 #dates2plot = ['2012071500','2012081518']
 #dates2plot = ['2020081500','2020092018']
-dates2plot = ['2017021500','2017022818']
-date_firstrecord = '2017021500'
-date_firstrecord_sfcfile = '2017020100'
+dates2plot = ['2026010100','2026013118']
+date_firstrecord = '2026010100'
+date_firstrecord_sfcfile = '2026010100'
 hinc = 6
 
 
@@ -47,8 +47,8 @@ map_projection = 'npstere' # 'npstere' for northern hemisphere polar stereorgrap
 #proj_latlon = [65. , 0.]
 #proj_latlon = [55. , 270.]
 #proj_latlon = [70. , 270.]
-#proj_latlon = [20. , 270.]
-proj_latlon = [65. , 270.]
+proj_latlon = [20. , 270.]
+#proj_latlon = [65. , 270.]
 #proj_latlon = [-30. , -180.]
 
 #proj_latlon = [90. , 80.]
