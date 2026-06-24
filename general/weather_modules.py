@@ -80,6 +80,37 @@ def spechum_to_td(spechum, pres):
     evap = qvap * pres * RvRd;
     tdew = 1/((1/Tfrez) - (Rv/L)*np.log(evap/eo))
     return tdew
+
+def relh_to_spechum(temperature,relh,pres):
+    ''' Convert from relative humidity to specific humidity
+    
+    temperature: Input temperature (K)
+    relh: Input relative humidity (fraction)
+    pres: Input pressure (Pa)
+
+    spechum: Output specific humidity in (kg/kg)
+    '''
+    
+    satvap = claus_clap(temperature)
+    vap_pres = satvap*relh 
+    spechum = (epsil*vap_pres)/(pres - (1.-epsil)*vap_pres)
+    return spechum
+
+def spechum_to_relh(temperature,pres,spechum):
+    ''' Convert from specific humidity to relative humidity 
+    
+    temperature: Input temperature (K)
+    pres: Input pressure (Pa)
+    spechum: Input specific humidity in (kg/kg)
+    
+    relh: Output relative humidity (fraction)
+    '''
+    
+    satvap = claus_clap(temperature)
+    ws = (epsil*satvap)/(pres-satvap)
+    relh = spechum/((1-spechum)*ws)
+    
+    return relh
     
 def claus_clap(temp):
     ''' Compute saturation vapor pressure '''
@@ -1220,7 +1251,7 @@ Input:
 
 
    lats(lats) : latitude vector
-   lons(lons) : longitude array
+   lons(lons) : longitude vector
 
 
 Output: 
@@ -1250,6 +1281,68 @@ Output:
     thermal_wind_v = (9.81/f)*dthickdx
 
     return thermal_wind_u, thermal_wind_v
+
+import numpy as np
+
+def thermal_wind_isobaric_latlon(T, lat, lon, p, R=287.0, Omega=7.2921e-5, a=6371000.0):
+    """
+    Compute thermal wind (vertical shear of geostrophic wind)
+    on a latitude–longitude grid.
+
+    Parameters
+    ----------
+    T : ndarray (nz, ny, nx)
+        Temperature (K)
+    lat : ndarray (ny,)
+        Latitude in degrees
+    lon : ndarray (nx,)
+        Longitude in degrees
+    p : ndarray (nz,)
+        Pressure levels (Pa)
+    R : float
+        Gas constant for dry air
+    Omega : float
+        Earth's rotation rate (rad/s)
+    a : float
+        Earth's radius (m)
+
+    Returns
+    -------
+    du_dlnp : ndarray (nz, ny, nx)
+        Zonal thermal wind (∂u/∂ln p)
+    dv_dlnp : ndarray (nz, ny, nx)
+        Meridional thermal wind (∂v/∂ln p)
+    """
+
+    # Convert to radians
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    # Grid spacing in radians
+    dphi = np.gradient(lat_rad)
+    dlambda = np.gradient(lon_rad)
+
+    # Coriolis parameter
+    f = 2 * Omega * np.sin(lat_rad)  # (ny,)
+    f = f[:, None]  # expand to (ny,1)
+
+    # Avoid division near equator
+    f = np.where(np.abs(f) < 1e-5, np.nan, f)
+
+    # Compute temperature gradients
+    dT_dphi = np.gradient(T, axis=1) / dphi[None, :, None]
+    dT_dlambda = np.gradient(T, axis=2) / dlambda[None, None, :]
+
+    # Convert to physical space
+    dT_dy = dT_dphi / a
+    dT_dx = dT_dlambda / (a * np.cos(lat_rad)[None, :, None])
+
+    # Thermal wind components
+    du_dlnp = -(R / f)[None, :, :] * dT_dy
+    dv_dlnp = (R / f)[None, :, :] * dT_dx
+
+    return du_dlnp, dv_dlnp
+
 
 def eliassen_palm_flux_sphere(geop,theta,lats,lons,levs):
     """
@@ -1769,12 +1862,10 @@ def mean_confidence_interval(data, confidence=0.95):
 def bootstrap(data,boot_num,alpha):
     import numpy.matlib
     data = 1.0*np.array(data)
-    #datavec = np.reshape(data, np.prod(np.size(data)), 1)
     datavec = np.reshape(data, (np.prod(np.size(data)),1));
     n = len(datavec)
     boot_means = np.empty([boot_num])
     for i in np.arange(0,boot_num,1):
-        #current_boot = np.random.choice(data,n)
         current_boot = np.nanstd(datavec)*np.matlib.randn((n)) + np.nanmean(datavec)
         boot_means[i] = np.nanmean(current_boot)
     
@@ -1792,14 +1883,9 @@ def bootstrap(data,boot_num,alpha):
 def bootstrap_twosamps(data1,data2,boot_num,alpha):
     import numpy.matlib
  
-    #data1vec = np.reshape(data1, np.prod(np.size(data1)), 1)
-    #data2vec = np.reshape(data2, np.prod(np.size(data2)), 1)
-    #data1vec = np.reshape(data1, (np.prod(np.size(data1),0)))
-    #data2vec = np.reshape(data2, (np.prod(np.size(data2),0))) 
     data1vec = np.reshape(data1, (np.prod(np.size(data1)),1));
     data2vec = np.reshape(data2, (np.prod(np.size(data2)),1));    
        
-    # N(datamean,var):
     data1mean = np.nanmean(data1vec)
     data1std = np.nanstd(data1vec)
     data2mean = np.nanmean(data2vec)
@@ -1825,4 +1911,636 @@ def bootstrap_twosamps(data1,data2,boot_num,alpha):
         ci_limits_out = [ci_upper,ci_lower]  
     return boot_means,ci_limits_out
 
+
+
+def qg_omega_solver(f0, sigma, dx, dy, dp, zeta_adv, temp_adv, max_iter=500, tol=1e-6):
+    """
+    Solve QG omega equation using iterative relaxation.
+
+    Parameters:
+    -----------
+    f0 : float
+        Coriolis parameter (constant)
+    sigma : float
+        Static stability parameter
+    dx, dy : float
+        Horizontal grid spacing (m)
+    dp : float
+        Pressure spacing (Pa)
+    zeta_adv : 3D array
+        Differential vorticity advection term
+    temp_adv : 3D array
+        Temperature advection term
+    max_iter : int
+        Maximum iterations
+    tol : float
+        Convergence tolerance
+
+    Returns:
+    --------
+    omega : 3D array
+        Vertical motion (Pa/s)
+    """
+
+    nz, ny, nx = zeta_adv.shape
+    omega = np.zeros_like(zeta_adv)
+
+    # Forcing term (simplified QG forcing)
+    forcing = f0 * zeta_adv + (1.0 / sigma) * temp_adv
+
+    # Finite-difference coefficients
+    dx2 = dx**2
+    dy2 = dy**2
+    dp2 = dp**2
+    coef = 2/dx2 + 2/dy2 + f0**2/dp2
+
+    for iteration in range(max_iter):
+        omega_old = omega.copy()
+
+        # Update interior points
+        for k in range(1, nz-1):
+            for j in range(1, ny-1):
+                for i in range(1, nx-1):
+
+                    laplacian_xy = (
+                        (omega[k, j, i+1] + omega[k, j, i-1]) / dx2 +
+                        (omega[k, j+1, i] + omega[k, j-1, i]) / dy2
+                    )
+
+                    vertical_term = (
+                        f0**2 * (omega[k+1, j, i] + omega[k-1, j, i]) / dp2
+                    )
+
+                    omega[k, j, i] = (
+                        (laplacian_xy + vertical_term - forcing[k, j, i])
+                        / coef
+                    )
+
+        # Convergence check
+        error = np.max(np.abs(omega - omega_old))
+        if error < tol:
+            print(f"Converged in {iteration} iterations")
+            break
+
+    return omega
+
+
+def compute_qg_forcing(u, v, T, f0, p, dx, dy, dp, R=287.0):
+    """
+    Compute QG omega equation forcing terms.
+
+    Parameters:
+    -----------
+    u, v : 3D arrays (nz, ny, nx)
+        Geostrophic wind components (m/s)
+    T : 3D array
+        Temperature (K)
+    f0 : float
+        Coriolis parameter (s^-1)
+    p : 1D array
+        Pressure levels (Pa)
+    dx, dy : float
+        Horizontal grid spacing (m)
+    dp : float
+        Pressure spacing (Pa)
+    R : float
+        Gas constant for dry air (default 287 J/kg/K)
+
+    Returns:
+    --------
+    forcing : 3D array
+        Total QG forcing term
+    vort_adv_term : 3D array
+        Differential vorticity advection term
+    temp_adv_term : 3D array
+        Laplacian of temperature advection term
+    """
+
+    nz, ny, nx = u.shape
+
+    # --- helper derivatives ---
+    def d_dx(F):
+        return (np.roll(F, -1, axis=2) - np.roll(F, 1, axis=2)) / (2 * dx)
+
+    def d_dy(F):
+        return (np.roll(F, -1, axis=1) - np.roll(F, 1, axis=1)) / (2 * dy)
+
+    def d_dp(F):
+        return (np.roll(F, -1, axis=0) - np.roll(F, 1, axis=0)) / (2 * dp)
+
+    def laplacian(F):
+        return (
+            (np.roll(F, -1, axis=2) - 2*F + np.roll(F, 1, axis=2)) / dx**2 +
+            (np.roll(F, -1, axis=1) - 2*F + np.roll(F, 1, axis=1)) / dy**2
+        )
+
+    # --- geostrophic relative vorticity ---
+    zeta = d_dx(v) - d_dy(u)
+
+    # --- horizontal gradients ---
+    dzeta_dx = d_dx(zeta)
+    dzeta_dy = d_dy(zeta)
+    dT_dx = d_dx(T)
+    dT_dy = d_dy(T)
+
+    # --- advection terms ---
+    vort_adv = -u * dzeta_dx - v * dzeta_dy
+    temp_adv = -u * dT_dx - v * dT_dy
+
+    # --- Term 1: differential vorticity advection ---
+    vort_adv_term = -f0 * d_dp(vort_adv)
+
+    # --- Term 2: Laplacian of temperature advection ---
+    # Expand pressure to 3D for broadcasting
+    p_3d = p[:, None, None]
+    temp_adv_term = (R / p_3d) * laplacian(temp_adv)
+
+    # --- Total forcing ---
+    forcing = vort_adv_term + temp_adv_term
+
+    return forcing, vort_adv_term, temp_adv_term
+
+def compute_qg_forcing_latlon(u, v, T, thickness, lat, lon, p, f0, dp, R=287.0, a=6.371e6):
+    """
+    Compute QG omega equation forcing on a latitude/longitude grid.
+
+    Parameters:
+    -----------
+    u, v : 3D arrays (nz, ny, nx)
+        Geostrophic wind components (m/s)
+    T : 3D array
+        Temperature (K)
+    lat : 1D array (ny)
+        Latitude (degrees)
+    lon : 1D array (nx)
+        Longitude (degrees)
+    p : 1D array (nz)
+        Pressure (Pa)
+    f0 : float
+        Reference Coriolis parameter
+    dp : float
+        Pressure spacing (Pa)
+    R : float
+        Gas constant (default 287 J/kg/K)
+    a : float
+        Earth radius (m)
+
+    Returns:
+    --------
+    forcing: 3D array of RHS of the traditional form of Omega Equation
+    vort_adv_term: 3D array of differential vorticity advection term of the traditional form of Omega Equation
+    temp_adv_term: 3D array of the temperature advection term of the traditional form of Omega Equation
+    sutcliffe_trenberth_term: 3D array of the advection of absolute vertical vorticity by the thermal wind term of the Sutcliffe-Trenberth Omega Equation
+    Qvec_forcing: 3D array of the rhs of the Q-vector form of the Omega Equation
+    Qx, Qy: 3D arrays of the Q-vectors
+    sigma: 3D array of the sigma term in the QG Omega Equations
+    """
+
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    dphi = np.gradient(lat_rad)        # (ny)
+    dlambda = np.gradient(lon_rad)     # (nx)
+        
+    cosphi = np.cos(lat_rad)
+
+    nz, ny, nx = u.shape
+
+    # Coriolis parameter
+    omeg_e = (2*np.pi) / (24*3600)
+    fvec = 2.*omeg_e*np.sin(lat_rad)
+
+    # Expand metrics
+    #cosphi_2d = cosphi[:, None]
+    # 1. Expand to (1, x, 1)
+    expanded = np.expand_dims(cosphi, axis=(0, 2)) # Shape: (1, 1, x)
+    # 2. Tile to (z, y, x)
+    cosphi_2d = np.tile(expanded, (nz, 1, nx)) # Shape: (nz, nx, ny)
+    
+    # 1. Expand to (1, 1, x)
+    expanded2 = np.expand_dims(dlambda, axis=(0, 1)) # Shape: (1, 1, x)
+    # 2. Tile to (z, y, x)
+    dlambda_3d = np.tile(expanded2, (nz, ny, 1)) # Shape: (nz, ny, nx)
+
+    # 1. Expand to (1, 1, x)
+    expanded3 = np.expand_dims(dphi, axis=(0, 2)) # Shape: (1, x, 1)
+    # 2. Tile to (z, y, x)
+    dphi_3d = np.tile(expanded3, (nz, 1, nx)) # Shape: (nz, ny, nx)   
+
+    expanded4 = np.expand_dims(fvec, axis=(0, 2)) # Shape: (1, 1, x)
+    f = np.tile(expanded4, (nz, 1, nx)) # Shape: (nz, nx, ny)
+    
+    dp3d = np.zeros_like(T).astype('f')
+    for kk in range(0,nz):
+        dp3d[kk,:,:] = dp[kk]
+
+    # --- helper derivative operators ---
+    def d_dx(F):
+        """Zonal derivative (accounting for cos(phi))"""
+        return (np.roll(F, -1, axis=2) - np.roll(F, 1, axis=2)) / (
+            2 * a * cosphi_2d * dlambda_3d
+        )
+
+    def d_dy(F):
+        """Meridional derivative"""
+        return (np.roll(F, -1, axis=1) - np.roll(F, 1, axis=1)) / (
+            2 * a * dphi_3d
+        )
+
+    def d_dp(F):
+        return (np.roll(F, -1, axis=0) - np.roll(F, 1, axis=0)) / (2 * dp3d)
+
+    def laplacian(F):
+        """Spherical Laplacian (approximate)"""
+      
+        
+        d2_dx2 = (
+            np.roll(F, -1, axis=2) - 2*F + np.roll(F, 1, axis=2)
+        ) / (a**2 * cosphi_2d**2 * dlambda_3d**2)
+
+    def ddlambda(field, dlambda):
+        return np.gradient(field, axis=2) / dlambda[None, None, :]
+
+    def ddphi(field, dphi):
+        return np.gradient(field, axis=1) / dphi[None, :, None]
+
+    def q_divergence(Qx, Qy, lat, dlambda, dphi, a):
+        lat_rad = np.deg2rad(lat)
+        cosphi = np.cos(lat_rad)
+
+        dQx_dlambda = ddlambda(Qx, dlambda)
+        dQycos_dphi = ddphi(Qy * cosphi[None, :, None], dphi)
+
+        divQ = (
+            dQx_dlambda / (a * cosphi[None, :, None])
+            + dQycos_dphi / (a * cosphi[None, :, None])
+        )
+
+        return divQ
+
+   
+   # --- vorticity ---
+    zeta = d_dx(v) - d_dy(u)
+
+    # --- gradients ---
+    dzeta_dx = d_dx(zeta)
+    dzeta_dy = d_dy(zeta+f)
+
+    dT_dx = d_dx(T)
+    dT_dy = d_dy(T)
+
+    # --- advection ---
+    vort_adv = -u * dzeta_dx - v * dzeta_dy
+    temp_adv = -u * dT_dx - v * dT_dy
+
+
+    # --- forcing terms ---
+    vort_adv_term = -f0 * d_dp(vort_adv)
+   
+
+    p_3d = np.zeros_like(T).astype('f')
+    for kk in range(0,nz):
+        p_3d[kk,:,:] = p[kk]
+    
+    var1 = temp_adv
+    var2 = np.array(cosphi_2d).astype('f')
+    var3 = np.array(dlambda_3d).astype('f')
+    d2_dx2 = (
+            np.roll(var1, -1, axis=2) - 2*var1 + np.roll(var1, 1, axis=2)
+     ) / (a**2 * var2**2 * var3**2)  
+    
+    temp_adv_term = (R / p_3d) * d2_dx2 
+    #temp_adv_term = (R / p_3d) * laplacian(temp_adv)
+    
+    theta = T * (100000. / p_3d) ** 0.286
+    dln_theta_dp = d_dp(np.log(theta))
+
+    # Compute sigma
+    sigma = - (R * T / p_3d) * dln_theta_dp
+    
+    vort_adv_term = vort_adv_term/sigma
+    temp_adv_term = temp_adv_term/sigma
+    forcing = vort_adv_term + temp_adv_term
+    
+    thickness = np.array(thickness).astype('f')
+    
+    du_dlndp, dv_dlndp = thermal_wind_isobaric_latlon(T, lat, lon, p, R=287.0, Omega=7.2921e-5, a=6371000.0)
+    dudp = du_dlndp/p_3d
+    dvdp = dv_dlndp/p_3d
+
+    # Sutcliffe-Trenberth forcing
+    thermalwind_adv = 2.*(dudp * dzeta_dx + dvdp * dzeta_dy)
+    sutcliffe_trenberth_term = (f0/sigma)*thermalwind_adv
+    
+    # Q-vector forcing
+    dudlambda = ddlambda(u, dlambda)
+    dudphi = ddphi(u, dphi)
+    
+    dvdlambda = ddlambda(v, dlambda)
+    dvdphi = ddphi(v, dphi)
+
+    dTdlambda = ddlambda(T, dlambda)
+    dTdphi = ddphi(T, dphi)
+
+    dudx = dudlambda / (a * cosphi[None, :, None])
+    dudy = dudphi / a
+    
+    dvdx = dvdlambda / (a * cosphi[None, :, None])
+    dvdy = dvdphi / a
+
+    dTdx = dTdlambda / (a * cosphi[None, :, None])
+    dTdy = dTdphi / a
+
+    Qx = -(R / p_3d) * (dudx * dTdx + dvdx * dTdy)
+    Qy = -(R / p_3d) * (dudy * dTdx + dvdy * dTdy)
+    
+    divQ = q_divergence(Qx, Qy, lat, dlambda, dphi, a)
+    Qvec_forcing = 2/sigma * divQ
+
+
+    return forcing, vort_adv_term, temp_adv_term, sutcliffe_trenberth_term, Qvec_forcing, Qx, Qy, sigma
+
+def compute_qg_HeightTendency_latlon(u, v, T, lat, lon, p, f0, dp, R=287.0, a=6.371e6):
+    """
+    Compute QG Height Tendency equation terms on a latitude/longitude grid.
+
+    Parameters:
+    -----------
+    u, v : 3D arrays (nz, ny, nx)
+        Geostrophic wind components (m/s)
+    T : 3D array
+        Temperature (K)
+    lat : 1D array (ny)
+        Latitude (degrees)
+    lon : 1D array (nx)
+        Longitude (degrees)
+    p : 1D array (nz)
+        Pressure (Pa)
+    f0 : float
+        Reference Coriolis parameter
+    dp : float
+        Pressure spacing (Pa)
+    R : float
+        Gas constant (default 287 J/kg/K)
+    a : float
+        Earth radius (m)
+
+    Returns:
+    --------
+    forcing: 3D array of RHS of the traditional form of Omega Equation
+    vort_adv_term: 3D array of differential vorticity advection term of the traditional form of Omega Equation
+    temp_adv_term: 3D array of the temperature advection term of the traditional form of Omega Equation
+    sutcliffe_trenberth_term: 3D array of the advection of absolute vertical vorticity by the thermal wind term of the Sutcliffe-Trenberth Omega Equation
+    Qvec_forcing: 3D array of the rhs of the Q-vector form of the Omega Equation
+    Qx, Qy: 3D arrays of the Q-vectors
+    sigma: 3D array of the sigma term in the QG Omega Equations
+    """
+
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    dphi = np.gradient(lat_rad)        # (ny)
+    dlambda = np.gradient(lon_rad)     # (nx)
+        
+    cosphi = np.cos(lat_rad)
+
+    nz, ny, nx = u.shape
+
+    # Coriolis parameter
+    omeg_e = (2*np.pi) / (24*3600)
+    fvec = 2.*omeg_e*np.sin(lat_rad)
+
+    # Expand metrics
+    #cosphi_2d = cosphi[:, None]
+    # 1. Expand to (1, x, 1)
+    expanded = np.expand_dims(cosphi, axis=(0, 2)) # Shape: (1, 1, x)
+    # 2. Tile to (z, y, x)
+    cosphi_2d = np.tile(expanded, (nz, 1, nx)) # Shape: (nz, nx, ny)
+    
+    # 1. Expand to (1, 1, x)
+    expanded2 = np.expand_dims(dlambda, axis=(0, 1)) # Shape: (1, 1, x)
+    # 2. Tile to (z, y, x)
+    dlambda_3d = np.tile(expanded2, (nz, ny, 1)) # Shape: (nz, ny, nx)
+
+    # 1. Expand to (1, 1, x)
+    expanded3 = np.expand_dims(dphi, axis=(0, 2)) # Shape: (1, x, 1)
+    # 2. Tile to (z, y, x)
+    dphi_3d = np.tile(expanded3, (nz, 1, nx)) # Shape: (nz, ny, nx)   
+
+    expanded4 = np.expand_dims(fvec, axis=(0, 2)) # Shape: (1, 1, x)
+    f = np.tile(expanded4, (nz, 1, nx)) # Shape: (nz, nx, ny)
+    
+    dp3d = np.zeros_like(T).astype('f')
+    for kk in range(0,nz):
+        dp3d[kk,:,:] = dp[kk]
+
+    # --- helper derivative operators ---
+    def d_dx(F):
+        """Zonal derivative (accounting for cos(phi))"""
+        return (np.roll(F, -1, axis=2) - np.roll(F, 1, axis=2)) / (
+            2 * a * cosphi_2d * dlambda_3d
+        )
+
+    def d_dy(F):
+        """Meridional derivative"""
+        return (np.roll(F, -1, axis=1) - np.roll(F, 1, axis=1)) / (
+            2 * a * dphi_3d
+        )
+
+    def d_dp(F):
+        return (np.roll(F, -1, axis=0) - np.roll(F, 1, axis=0)) / (2 * dp3d)
+
+  
+    p_3d = np.zeros_like(T).astype('f')
+    for kk in range(0,nz):
+        p_3d[kk,:,:] = p[kk]
+   
+   # --- vorticity ---
+    zeta = d_dx(v) - d_dy(u)
+
+    # --- gradients ---
+    dzeta_dx = d_dx(zeta)
+    dzeta_dy = d_dy(zeta+f)
+
+    dT_dx = d_dx(T)
+    dT_dy = d_dy(T)
+
+    # --- advection ---
+    vort_adv = -u * dzeta_dx - v * dzeta_dy
+    temp_adv = -u * dT_dx - v * dT_dy
+
+    theta = T * (100000. / p_3d) ** 0.286
+    dln_theta_dp = d_dp(np.log(theta))
+
+    # --- sigma ---
+    sigma = - (R * T / p_3d) * dln_theta_dp
+   
+    # --- forcing terms ---
+    tcoef = (R * (f0**2))/(sigma*p_3d)
+    diff_temp_adv_term = d_dp(-tcoef*temp_adv)
+    vort_adv_term = f0*vort_adv
+    
+    forcing = diff_temp_adv_term + vort_adv_term
+
+    return forcing, vort_adv_term, diff_temp_adv_term, sigma
+
+def compute_deformation(u, v, lat, lon):
+    """
+    Compute deformation components and vorticity from 2D winds.
+
+    Parameters
+    ----------
+    u, v : xarray.DataArray or numpy.ndarray
+        Eastward (u) and northward (v) wind components.
+        Expected shape: (lat, lon) or DataArray with dims ('lat','lon').
+    lat, lon : 1D arrays (degrees)
+        Latitude and longitude coordinates (degrees).
+        lat should be increasing or decreasing consistently.
+
+    Returns
+    -------
+    dict of xarray.DataArray or numpy.ndarray:
+        'du_dx', 'du_dy', 'dv_dx', 'dv_dy', 'A' (stretching),
+        'B' (shearing), 'D' (total deformation), 'zeta' (relative vorticity).
+        Units: 1/s (assuming u,v in m/s and lat/lon in degrees).
+    """
+
+    import numpy as np
+    import xarray as xr
+    import matplotlib.pyplot as plt
+
+    R_earth = 6371000.0
+
+    # Convert inputs to xarray DataArray for convenient coords if not already
+    is_xr = isinstance(u, xr.DataArray) and isinstance(v, xr.DataArray)
+    if not is_xr:
+        u = xr.DataArray(u, dims=("lat", "lon"))
+        v = xr.DataArray(v, dims=("lat", "lon"))
+
+    # Ensure lat/lon arrays are xarray Coordinates
+    lat = np.asarray(lat)
+    lon = np.asarray(lon)
+    nlat = lat.size
+    nlon = lon.size
+
+    # convert degrees -> radians for spacing computation
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    # meridional spacing (dy) in meters: depends on lat spacing
+    # dy is length nlat-1 between grid cell centers; we'll build an array of length nlat
+    # using differences between adjacent latitudes
+    dlat = np.gradient(lat_rad)   # radians, length nlat
+    dy = R_earth * dlat          # meters, length nlat
+
+    # zonal spacing (dx) in meters depends on latitude (circumference cos(lat))
+    dlon = np.gradient(lon_rad)  # radians, length nlon
+    # dx per lat: for each latitude index i, dx_i is R * cos(lat_i) * dlon_j
+    # We'll compute dx as 2D via outer product
+    coslat = np.cos(lat_rad)     # length nlat
+    # dx as 1D as function of lon (if lon spacing uniform) or 2D:
+    # Build 1D dlon (varies with lon) and then make dx_2d = R * coslat[:,None] * dlon[None,:]
+    dx_1d = R_earth * dlon       # length nlon in meters (at equator)
+    dx_2d = np.outer(coslat * R_earth, dlon)  # shape (nlat, nlon), meters
+
+    # For derivatives we want arrays of spacing consistent with np.gradient:
+    # We'll compute derivatives with central diffs explicitly to allow different spacing per cell.
+
+    # Grab numpy arrays for arithmetic
+    u_arr = u.values
+    v_arr = v.values
+
+    # define helper to compute d/dy (axis=0) with variable dy (length nlat)
+    def ddx_central(f, axis=1):
+        """d/dx where x is longitude axis (axis=1). Returns same shape as f."""
+        df = np.zeros_like(f)
+        # interior points: central difference with local dx (dx varies with lon and lat)
+        # dx_2d has shape (nlat, nlon)
+        # forward/backward on boundaries
+        # central interior
+        df[:, 1:-1] = (f[:, 2:] - f[:, :-2]) / (dx_2d[:, 2:] + dx_2d[:, :-2]) * 2.0
+        # first column (forward)
+        df[:, 0] = (f[:, 1] - f[:, 0]) / dx_2d[:, 0]
+        # last column (backward)
+        df[:, -1] = (f[:, -1] - f[:, -2]) / dx_2d[:, -1]
+        return df
+
+    def ddy_central(f, axis=0):
+        """d/dy where y is latitude axis (axis=0). Returns same shape as f."""
+        df = np.zeros_like(f)
+        # interior central
+        # dy is 1D length nlat; expand to (nlat, nlon) by broadcasting
+        dy_2d = dy[:, None]  # shape (nlat,1)
+        df[1:-1, :] = (f[2:, :] - f[:-2, :]) / (dy_2d[2:, :] + dy_2d[:-2, :]) * 2.0
+        # first row (forward)
+        df[0, :] = (f[1, :] - f[0, :]) / dy_2d[0, :]
+        # last row (backward)
+        df[-1, :] = (f[-1, :] - f[-2, :]) / dy_2d[-1, :]
+        return df
+
+    du_dx = ddx_central(u_arr, axis=1)
+    du_dy = ddy_central(u_arr, axis=0)
+    dv_dx = ddx_central(v_arr, axis=1)
+    dv_dy = ddy_central(v_arr, axis=0)
+
+    # deformation components
+    A = du_dx - dv_dy                 # stretching
+    B = du_dy + dv_dx                 # shearing
+    D = np.sqrt(A**2 + B**2)          # total deformation
+
+    # relative vorticity (dv/dx - du/dy)
+    zeta = dv_dx - du_dy
+
+    # wrap results as xarray DataArrays with coords if input was xarray
+    coords = {"lat": lat, "lon": lon}
+    result = {
+        "du_dx": xr.DataArray(du_dx, dims=("lat", "lon"), coords=coords),
+        "du_dy": xr.DataArray(du_dy, dims=("lat", "lon"), coords=coords),
+        "dv_dx": xr.DataArray(dv_dx, dims=("lat", "lon"), coords=coords),
+        "dv_dy": xr.DataArray(dv_dy, dims=("lat", "lon"), coords=coords),
+        "A": xr.DataArray(A, dims=("lat", "lon"), coords=coords),
+        "B": xr.DataArray(B, dims=("lat", "lon"), coords=coords),
+        "D": xr.DataArray(D, dims=("lat", "lon"), coords=coords),
+        "zeta": xr.DataArray(zeta, dims=("lat", "lon"), coords=coords),
+    }
+
+    return result
+
+
+# -------------------------
+# Example usage with xarray:
+# -------------------------
+if __name__ == "__main__":
+    # Example: load a NetCDF (u,v) from file (replace with your filename/var names)
+    # ds = xr.open_dataset("analysis.nc")
+    # u = ds['u10']  # or ds['ua'] etc.
+    # v = ds['v10']
+    # lat = ds['lat'].values
+    # lon = ds['lon'].values
+
+    # For demonstration, create a synthetic wind field:
+    lat = np.linspace(-60, 60, 121)
+    lon = np.linspace(0, 359, 360)
+    Lon, Lat = np.meshgrid(lon, lat)
+    # simple rotational flow example (solid-body rotation around pole) in m/s
+    omega = 1e-5  # s^-1
+    # convert lat/lon to meters in local approx (simple demo)
+    x = R_earth * np.deg2rad(Lon) * np.cos(np.deg2rad(Lat))
+    y = R_earth * np.deg2rad(Lat)
+    u_demo = -omega * y  # eastward
+    v_demo =  omega * x  # northward
+
+    # compute
+    results = compute_deformation(u_demo, v_demo, lat, lon)
+
+    # quick plot of total deformation
+    plt.figure(figsize=(10,4))
+    ax = plt.gca()
+    im = results['D'].plot(ax=ax, cmap='viridis')  # xarray plotting; won't set colors explicitly per tool rules
+    ax.set_title("Total deformation D (s$^{-1}$)")
+    plt.show()
+
+    # print stats
+    print("D min/max:", float(results['D'].min()), float(results['D'].max()))
+    print("zeta min/max:", float(results['zeta'].min()), float(results['zeta'].max()))
     
