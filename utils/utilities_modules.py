@@ -3,8 +3,11 @@
 import numpy as np
 #import matplotlib.pyplot as mpl
 import matplotlib as plt
-#from mpl_toolkits.basemap import Basemap, addcyclic 
+from pyproj import Geod
+from mpl_toolkits.basemap import Basemap, addcyclic 
 import math
+import requests
+#from tqdm import tqdm
 
 from mstats import *
 
@@ -395,6 +398,21 @@ def earth_distm(lat1,lon1,lat2,lon2):
 
     return ed
 
+def findRotAngle(clon,clat,rlon,rlat):
+    '''
+    
+    Find azimuth angle between two lat-lon points (between 0 and 360 degrees)
+    Returns angle measured clockwise from due north
+    E.g., a due north azimuth from the center point to the rotated point returns 0
+          a due east azimuth from the center point to the rotated point returns 90
+    
+    '''
+    g = Geod(ellps='WGS84')
+    az12,az21,dist = g.inv(clon,clat,rlon,rlat)
+    
+    if az12 <= 0:
+        az12 = 360.+az12
+    return(az12,dist)
 
 def destagger_hor_wind(ustag,vstag):
    """
@@ -1392,3 +1410,124 @@ def timedelta_to_days(td):
     days = td.days + (td.seconds + (td.microseconds * 10.e6)) / seconds_in_day
     
     return days
+def cartopy_plot_prep(proj,lonarr,latarr,plotvar):
+    """
+    Prepares a plot variable for plotting with Cartopy
+    
+    Steven Cavallo
+    May 2023
+    """
+    import cartopy.crs as ccrs
+    
+    out = proj.transform_points(ccrs.PlateCarree(),lonarr,latarr,plotvar)
+    x = out[...,0]
+    y = out[...,1]
+    z = out[...,2]    
+    
+    return x, y, z
+
+def geodesic(crs, start, end, steps):
+    '''
+    Construct a geodesic path between two points.
+    This function acts as a wrapper for the geodesic construction available in `pyproj`.
+    Parameters
+    ----------
+    crs: `cartopy.crs`
+        Cartopy Coordinate Reference System to use for the output
+    start: (2, ) array_like
+        A latitude-longitude pair designating the start point of the geodesic (units are
+        degrees north and degrees east).
+    end: (2, ) array_like
+        A latitude-longitude pair designating the end point of the geodesic (units are degrees
+        north and degrees east).
+    steps: int, optional
+        The number of points along the geodesic between the start and the end point
+        (including the end points).
+    Returns
+    -------
+    `numpy.ndarray`
+        The list of x, y points in the given CRS of length `steps` along the geodesic.
+    See Also
+    --------
+    cross_section
+    '''
+    import cartopy.crs as ccrs    
+
+    g = Geod(crs.proj4_init)
+    geodesic = np.concatenate([
+        np.array(start[::-1])[None],
+        np.array(g.npts(start[1], start[0], end[1], end[0], steps - 2)),
+        np.array(end[::-1])[None]
+    ]).transpose()
+    points = crs.transform_points(ccrs.Geodetic(), *geodesic)[:, :2]
+    return points
+def earthDistance(lons1, lats1, lons2, lats2):
+    rEarth = 6371
+    lons1 = np.radians(lons1)
+    lats1 = np.radians(lats1)
+    lons2 = np.radians(lons2)
+    lats2 = np.radians(lats2)
+    dlon = lons2 - lons1
+    dlat = lats2 - lats1
+    a = np.sin(dlat / 2)**2 + np.cos(lats1) * np.cos(lats2) * np.sin(dlon / 2)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    distance = rEarth * c
+    return(distance)   
+
+def random_color_generator(red_bounds,green_bounds,blue_bounds):
+    import random
+    from datetime import datetime
+
+    random.seed(datetime.now())    
+    
+    r = random.randint(red_bounds[0], red_bounds[1])
+    g = random.randint(green_bounds[0], green_bounds[1])
+    b = random.randint(blue_bounds[0], blue_bounds[1])
+    return (r, g, b)
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    
+    [ind] = np.where(array == array[idx])
+    
+    return array[idx], ind
+def download_gfs_file(url, save_path):
+	"""
+	# Function to download a GFS grib file 
+	# 
+	# Steven Cavallo
+	# March 2025
+	"""
+	response = requests.get(url, stream=True)
+	file_size = int(response.headers.get("content-length", 0))
+
+	url_idx = url + '.idx'
+	save_path_idx = save_path + '.idx'
+	response_idx = requests.get(url_idx, stream=True)
+
+    
+	if response.status_code == 200:
+		with open(save_path, "wb") as file, tqdm(
+			desc=f"Downloading {url}",
+			total=file_size,
+			unit="B",
+			unit_scale=True,
+			unit_divisor=1024,
+		) as bar:
+			for chunk in response.iter_content(chunk_size=1024):
+				file.write(chunk)
+				bar.update(len(chunk))
+		print(f"Download complete: {save_path}")
+	else:
+		print(f"Failed to download: {url}")
+
+
+	if response.status_code == 200:
+		with open(save_path_idx, "wb") as file:
+			for chunk in response_idx.iter_content(chunk_size=1024):
+				file.write(chunk)
+		print(f"Downloaded: {save_path_idx}")
+	else:
+		print(f"Failed to download. HTTP Status Code: {response.status_code}")
+
+

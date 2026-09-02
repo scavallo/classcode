@@ -1,4 +1,9 @@
-#!/home/scavallo/anaconda2/bin/python
+# mstats.py
+#
+# prints basic statistics of an array or vector in Python
+#
+# Steven Cavallo
+# February 2023
 
 import numpy as np
 
